@@ -18,16 +18,13 @@ void *GAMEINIT(void *arg) {
         gameWindow.draw(rectangle);
         gameWindow.display();
     }
-    cout << "Game Exited" << endl;
-    return arg;
+    pthread_exit(NULL);
 }
 
 int main()
 {
     pthread_t startGame;
     pthread_create(&startGame, NULL, GAMEINIT, NULL);
-    cout << "Game Started" << endl;
     pthread_join(startGame, NULL);
-    cout << "Return to main" << endl;
     return 0;
 }
