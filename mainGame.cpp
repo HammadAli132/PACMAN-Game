@@ -30,7 +30,7 @@ vector<vector<int>> maze1 = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 };
 
-void DRAWMAZE(RenderWindow &window, Sprite food, Sprite mazeBox) { // this function draws the maze
+void DRAWMAZE(RenderWindow &window, CircleShape food, Sprite mazeBox) { // this function draws the maze
     for (int i = 0; i < gridRows; i++) {
         for (int j = 0; j < gridCols; j++) {
             if (maze1[i][j] == 1) {
@@ -38,7 +38,7 @@ void DRAWMAZE(RenderWindow &window, Sprite food, Sprite mazeBox) { // this funct
                 window.draw(mazeBox); // drawing the mazeBox on window so that it can be rendered
             }
             if (maze1[i][j] == 0) {
-                food.setPosition(j * CELLSize + (CELLSize / 2), i * CELLSize + (CELLSize / 2)); // setting position of food such that it appears in the center of its block
+                food.setPosition(j * CELLSize + ((CELLSize / 2) - 5), i * CELLSize + ((CELLSize / 2) - 5)); // setting position of food such that it appears in the center of its block
                 window.draw(food); // drawing the food on window so that it can be rendered
             }
         }
@@ -48,18 +48,13 @@ void DRAWMAZE(RenderWindow &window, Sprite food, Sprite mazeBox) { // this funct
 
 void *GAMEINIT(void *arg) { // main game thread
     RenderWindow gameWindow(VideoMode(GRIDWIDTH, GRIDHEIGHT), "PACMAN Game", Style::Default);
-
+    CircleShape Food(5.0f); // this is our circular food
+    
     Texture box; // creating a texture for maze.png
     box.loadFromFile("sprites/box.png"); // loading the texture with maze.png
     Sprite mazeBox; // creating a sprite for Game Grid
     mazeBox.setTexture(box); // setting the Game Grid Sprite to maze texture
     mazeBox.scale(CELLSize, CELLSize); // scaling the sprite accoring to the cell size to fit in the screen
-
-    Texture food; // creating a texture for food.png
-    food.loadFromFile("sprites/food.png"); // loading the texture with food.png
-    Sprite foodBox; // creating a sprite for food
-    foodBox.setTexture(food); // setting the foodBox Sprite to food texture
-    foodBox.scale(CELLSize / 4, CELLSize / 4);
 
     while (gameWindow.isOpen()) {
         Event event;
@@ -68,8 +63,7 @@ void *GAMEINIT(void *arg) { // main game thread
                 gameWindow.close();
         }
         gameWindow.clear(); // clearing the buffer window
-        // gameWindow.draw(mazeBox); // drawing the sprite to buffer window
-        DRAWMAZE(gameWindow, foodBox, mazeBox);
+        DRAWMAZE(gameWindow, Food, mazeBox); // Drawing the maze with food and mazeBoxes
         gameWindow.display(); // swapping the buffer window with main window
     }
 
