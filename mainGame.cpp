@@ -34,11 +34,11 @@ void DRAWMAZE(RenderWindow &window, CircleShape food, Sprite mazeBox) { // this 
     for (int i = 0; i < gridRows; i++) {
         for (int j = 0; j < gridCols; j++) {
             if (maze1[i][j] == 1) {
-                mazeBox.setPosition(j * CELLSize, i * CELLSize); // setting position of mazeBox
+                mazeBox.setPosition((j * CELLSize) + 100, (i * CELLSize) + 100); // setting position of mazeBox
                 window.draw(mazeBox); // drawing the mazeBox on window so that it can be rendered
             }
             if (maze1[i][j] == 0) {
-                food.setPosition(j * CELLSize + ((CELLSize / 2) - 5), i * CELLSize + ((CELLSize / 2) - 5)); // setting position of food such that it appears in the center of its block
+                food.setPosition((j * CELLSize + ((CELLSize / 2) - 5)) + 100, (i * CELLSize + ((CELLSize / 2) - 5)) + 100); // setting position of food such that it appears in the center of its block
                 window.draw(food); // drawing the food on window so that it can be rendered
             }
         }
@@ -47,7 +47,7 @@ void DRAWMAZE(RenderWindow &window, CircleShape food, Sprite mazeBox) { // this 
 }
 
 void *GAMEINIT(void *arg) { // main game thread
-    RenderWindow gameWindow(VideoMode(GRIDWIDTH, GRIDHEIGHT), "PACMAN Game", Style::Default);
+    RenderWindow gameWindow(VideoMode(GRIDWIDTH + 200, GRIDHEIGHT + 200), "PACMAN Game", Style::Default);
     CircleShape Food(5.0f); // this is our circular food
     
     Texture box; // creating a texture for maze.png
