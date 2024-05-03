@@ -197,7 +197,5 @@ int main()
     pthread_t startGame;
     pthread_create(&startGame, NULL, GAMEINIT, NULL); // initiating main game thread
     pthread_join(startGame, NULL); // waiting for game thread to exit
-    cout << "hello World" << endl;
-    cout << "This my Amna's Code" << endl;
     return 0;
 }
