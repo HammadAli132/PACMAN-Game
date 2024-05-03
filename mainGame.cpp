@@ -4,12 +4,12 @@
 using namespace std;
 using namespace sf;
 
+//Globals
 #define GRIDHEIGHT 850
 #define GRIDWIDTH 1050
 #define CELLSize 50
 const int gridRows = GRIDHEIGHT / CELLSize;
 const int gridCols = GRIDWIDTH / CELLSize;
-
 vector<vector<int>> maze1 = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
@@ -37,7 +37,7 @@ void DRAWMAZE(RenderWindow &window, CircleShape food, Sprite mazeBox) { // this 
                 mazeBox.setPosition((j * CELLSize) + 100, (i * CELLSize) + 100); // setting position of mazeBox
                 window.draw(mazeBox); // drawing the mazeBox on window so that it can be rendered
             }
-            if (maze1[i][j] == 0) {
+            else if (maze1[i][j] == 0) {
                 food.setPosition((j * CELLSize + ((CELLSize / 2) - 5)) + 100, (i * CELLSize + ((CELLSize / 2) - 5)) + 100); // setting position of food such that it appears in the center of its block
                 window.draw(food); // drawing the food on window so that it can be rendered
             }
@@ -49,7 +49,7 @@ void DRAWMAZE(RenderWindow &window, CircleShape food, Sprite mazeBox) { // this 
 void *GAMEINIT(void *arg) { // main game thread
     RenderWindow gameWindow(VideoMode(GRIDWIDTH + 200, GRIDHEIGHT + 200), "PACMAN Game", Style::Default);
     CircleShape Food(5.0f); // this is our circular food
-    
+
     Texture box; // creating a texture for maze.png
     box.loadFromFile("sprites/box.png"); // loading the texture with maze.png
     Sprite mazeBox; // creating a sprite for Game Grid
