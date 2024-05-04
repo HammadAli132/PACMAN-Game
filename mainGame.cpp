@@ -35,20 +35,51 @@ bool threadExit = false; // this is a boolean to close all detached threads when
 Sprite mazeBox; // creating a sprite for Game Grid
 Texture box; // creating a texture for maze.png
 pthread_mutex_t ghostMovementSynchronizor;
+pthread_mutex_t ghostHomeLeavingSynchronizor;
+int currentGhostToLeave = 0;
+
+class GHOST {
+private:
+    Sprite sprite; // Ghost sprite
+    int turn; // Ghost's turn
+    int mode; // Ghost mode (e.g., scatter, chase)
+
+public:
+    GHOST(Texture &text, int t, int m = 0) { // Constructor
+        this->sprite.setTexture(text);
+        this->sprite.setScale(0.3f, 0.3f);
+        this->sprite.setPosition(GHOSTHOMEX * CELLSize + 101, GHOSTHOMEY * CELLSize + 100);
+        this->turn = t;
+        this->mode = m;
+    } 
+    // Getter for sprite
+    Sprite& getSprite() { return sprite; }
+    // Setter for sprite
+    void setSprite(Sprite sprite) { this->sprite = sprite; }
+    // Getter for turn
+    int getTurn() const { return turn; }
+    // Setter for turn
+    void setTurn(int turn) { this->turn = turn; }
+    // Getter for mode
+    int getMode() const { return mode; }
+    // Setter for mode
+    void setMode(int mode) { this->mode = mode; }
+};
 
 void *GHOSTTHREAD(void *arg) { // this is the ghost thread
-    Sprite *ghost = (Sprite *) arg;
+    GHOST *ghost = (GHOST *) arg;
     bool moveLeft = false; // boolean for left movement
     bool moveRight = false; // boolean for right movement
     bool moveUp = true; // boolean for up movement
     bool moveDown = false; // boolean for down movement
     bool collisionDetected = false; // boolean for collision detection
+    bool lefrHome = false;
     // initially only up ward movement is allowed because the ghost has to move up to come out of the home
 
     while (!threadExit) { // loop iterate until threadExit becomes true
         pthread_mutex_lock(&ghostMovementSynchronizor);
         // Getting the global bounds of the ghost
-        FloatRect ghostBounds = ghost->getGlobalBounds();
+        FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
 
         // Defining collision rectangles for each side of the ghost
         FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
@@ -182,13 +213,13 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
         }
         // Moving the ghost according to the position available
         if (moveUp)
-            ghost->move(0.0f, -1.0f);
+            ghost->getSprite().move(0.0f, -1.0f);
         else if (moveLeft)
-            ghost->move(-1.0f, 0.0f);
+            ghost->getSprite().move(-1.0f, 0.0f);
         else if (moveRight)
-            ghost->move(1.0f, 0.0f);
+            ghost->getSprite().move(1.0f, 0.0f);
         else if (moveDown)
-            ghost->move(0.0f, 1.0f);
+            ghost->getSprite().move(0.0f, 1.0f);
         pthread_mutex_unlock(&ghostMovementSynchronizor);
         sleep(milliseconds(5));
     }
@@ -221,47 +252,32 @@ void *GAMEINIT(void *arg) { // main game thread
 
     Texture redGhostTex;
     redGhostTex.loadFromFile("sprites/redGhost.png"); // loading a red ghost png
-    Sprite redGhost;
-    redGhost.setTexture(redGhostTex); // making a red ghost sprite
-    redGhost.setPosition(GHOSTHOMEX * CELLSize + 101, GHOSTHOMEY * CELLSize + 100); // setting its initial position
-    redGhost.setScale(0.3f, 0.3f); // scaling so that it fits nicely in the maze
+    GHOST redGhostObj(redGhostTex, 0, 0); // creating a ghost obj
 
     Texture greenGhostTex;
     greenGhostTex.loadFromFile("sprites/greenGhost.png"); // loading a red ghost png
-    Sprite greenGhost;
-    greenGhost.setTexture(greenGhostTex); // making a red ghost sprite
-    greenGhost.setPosition(GHOSTHOMEX * CELLSize + 101, GHOSTHOMEY * CELLSize + 100); // setting its initial position
-    greenGhost.setScale(0.3f, 0.3f); // scaling so that it fits nicely in the maze
+    GHOST greenGhostObj(greenGhostTex, 1, 0); // creating a ghost obj
 
     Texture blueGhostTex;
     blueGhostTex.loadFromFile("sprites/blueGhost.png"); // loading a red ghost png
-    Sprite blueGhost;
-    blueGhost.setTexture(blueGhostTex); // making a red ghost sprite
-    blueGhost.setPosition(GHOSTHOMEX * CELLSize + 101, GHOSTHOMEY * CELLSize + 100); // setting its initial position
-    blueGhost.setScale(0.3f, 0.3f); // scaling so that it fits nicely in the maze
+    GHOST blueGhostObj(blueGhostTex, 2, 0); // creating a ghost obj
 
     Texture yellowGhostTex;
     yellowGhostTex.loadFromFile("sprites/yellowGhost.png"); // loading a red ghost png
-    Sprite yellowGhost;
-    yellowGhost.setTexture(yellowGhostTex); // making a red ghost sprite
-    yellowGhost.setPosition(GHOSTHOMEX * CELLSize + 101, GHOSTHOMEY * CELLSize + 100); // setting its initial position
-    yellowGhost.setScale(0.3f, 0.3f); // scaling so that it fits nicely in the maze
+    GHOST yellowGhostObj(yellowGhostTex, 3, 0); // creating a ghost obj
 
     Texture pinkGhostTex;
     pinkGhostTex.loadFromFile("sprites/pinkGhost.png"); // loading a red ghost png
-    Sprite pinkGhost;
-    pinkGhost.setTexture(pinkGhostTex); // making a red ghost sprite
-    pinkGhost.setPosition(GHOSTHOMEX * CELLSize + 100, GHOSTHOMEY * CELLSize + 100); // setting its initial position
-    pinkGhost.setScale(0.3f, 0.3f); // scaling so that it fits nicely in the maze
+    GHOST pinkGhostObj(pinkGhostTex, 4, 0); // creating a ghost obj
 
     pthread_attr_t ghostProp; // setting detachable property
     pthread_attr_init(&ghostProp); // initializing that property
     pthread_attr_setdetachstate(&ghostProp, PTHREAD_CREATE_DETACHED); // making it detachable
     pthread_t ghostThread[4]; 
-    pthread_create(&ghostThread[0], &ghostProp, GHOSTTHREAD, (void **) &redGhost); // creating a detachable ghost thread
-    pthread_create(&ghostThread[1], &ghostProp, GHOSTTHREAD, (void **) &greenGhost); // creating a detachable ghost thread
-    pthread_create(&ghostThread[2], &ghostProp, GHOSTTHREAD, (void **) &pinkGhost); // creating a detachable ghost thread
-    pthread_create(&ghostThread[3], &ghostProp, GHOSTTHREAD, (void **) &yellowGhost); // creating a detachable ghost thread
+    pthread_create(&ghostThread[0], &ghostProp, GHOSTTHREAD, (void **) &redGhostObj); // creating a detachable ghost thread
+    pthread_create(&ghostThread[1], &ghostProp, GHOSTTHREAD, (void **) &greenGhostObj); // creating a detachable ghost thread
+    pthread_create(&ghostThread[2], &ghostProp, GHOSTTHREAD, (void **) &pinkGhostObj); // creating a detachable ghost thread
+    pthread_create(&ghostThread[3], &ghostProp, GHOSTTHREAD, (void **) &yellowGhostObj); // creating a detachable ghost thread
 
     while (gameWindow.isOpen()) {
         Event event;
@@ -271,10 +287,10 @@ void *GAMEINIT(void *arg) { // main game thread
         }
         gameWindow.clear(); // clearing the buffer window
         DRAWMAZE(gameWindow, Food, mazeBox); // Drawing the maze with food and mazeBoxes
-        gameWindow.draw(redGhost);
-        gameWindow.draw(greenGhost);
-        gameWindow.draw(pinkGhost);
-        gameWindow.draw(yellowGhost);
+        gameWindow.draw(redGhostObj.getSprite());
+        gameWindow.draw(greenGhostObj.getSprite());
+        gameWindow.draw(pinkGhostObj.getSprite());
+        gameWindow.draw(yellowGhostObj.getSprite());
         gameWindow.display(); // swapping the buffer window with main window
     }
 
@@ -287,5 +303,6 @@ int main()
     pthread_t startGame;
     pthread_create(&startGame, NULL, GAMEINIT, NULL); // initiating main game thread
     pthread_join(startGame, NULL); // waiting for game thread to exit
+    pthread_mutex_destroy(&ghostMovementSynchronizor);
     return 0;
 }
