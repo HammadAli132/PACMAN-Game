@@ -36,8 +36,7 @@ vector<vector<int>> maze1 = {
 bool threadExit = false; // this is a boolean to close all detached threads when the game closes
 Sprite mazeBox; // creating a sprite for Game Grid
 Texture box; // creating a texture for maze.png
-pthread_mutex_t ghostMovementSynchronizor;
-pthread_mutex_t ghostHomeLeavingSynchronizor;
+pthread_mutex_t objectMovementSynchronisor;
 int currentGhostToLeave = 0;
 
 class GHOST {
@@ -99,7 +98,7 @@ void *PLAYERTHREAD(void *arg){
     bool collisionDetected = false; // boolean for collision detection
 
     while(!threadExit){
-        pthread_mutex_lock(&ghostMovementSynchronizor);
+        pthread_mutex_lock(&objectMovementSynchronisor);
         FloatRect playerBounds = player->getSprite().getGlobalBounds();
         // Defining collision rectangles for each side of the player
         FloatRect leftRect(playerBounds.left - 1, playerBounds.top, 1, playerBounds.height); // getting left rect of player
@@ -110,26 +109,24 @@ void *PLAYERTHREAD(void *arg){
         // checking collisions with walls
         for(int i = 0; i<gridRows; i++){
             for(int j = 0; j<gridCols; j++){
-                if (maze1[i][j] == 1) {
+                if (maze1[i][j] == 1) { // checking if maze can be placed here or not
                     mazeBox.setPosition(j * CELLSize + 100, i * CELLSize + 100); // placing temporary mazeBox at current location
-                    if(player->moveUp && topRect.intersects(mazeBox.getGlobalBounds())){
+                    if(player->moveUp && topRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving rightwards and it collides with walls 
                         player->moveUp = false;
                     }
-
-                    if(player->moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())){
+                    else if(player->moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving downwards and it collides with walls
                         player->moveDown = false;
                     }
-
-                    if(player->moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())){
+                    else if(player->moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving leftwards and it collides with walls
                         player->moveLeft = false;
                     }
-
-                    if(player->moveRight && rightRect.intersects(mazeBox.getGlobalBounds())){
+                    else if(player->moveRight && rightRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving upwards and it collides with walls
                         player->moveRight = false;
                     }
                 }
             }            
         }
+        // moving the player accordingly
         if (player->moveUp)
             player->getSprite().move(0.0f, -1.0f);
         else if (player->moveLeft)
@@ -138,7 +135,7 @@ void *PLAYERTHREAD(void *arg){
             player->getSprite().move(1.0f, 0.0f);
         else if (player->moveDown)
             player->getSprite().move(0.0f, 1.0f);
-        pthread_mutex_unlock(&ghostMovementSynchronizor);
+        pthread_mutex_unlock(&objectMovementSynchronisor);
         sleep(milliseconds(5));
     }
     pthread_exit(NULL);    
@@ -156,7 +153,7 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
 
     while (!threadExit) { // loop iterate until threadExit becomes true
         if (currentGhostToLeave == ghost->getTurn() || leftHome) {
-            pthread_mutex_lock(&ghostMovementSynchronizor);
+            pthread_mutex_lock(&objectMovementSynchronisor);
             // Getting the global bounds of the ghost
             FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
 
@@ -304,7 +301,7 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
                 ghost->getSprite().move(1.0f, 0.0f);
             else if (moveDown)
                 ghost->getSprite().move(0.0f, 1.0f);
-            pthread_mutex_unlock(&ghostMovementSynchronizor);
+            pthread_mutex_unlock(&objectMovementSynchronisor);
             sleep(milliseconds(5));
         }
     }
@@ -356,13 +353,13 @@ void *GAMEINIT(void *arg) { // main game thread
     GHOST blueGhostObj(blueGhostTex, 4, 0); // creating a ghost obj
 
     Texture playerTexLeft;
-    playerTexLeft.loadFromFile("sprites/mouthOpenLeft.png"); // loading player png
+    playerTexLeft.loadFromFile("sprites/mouthOpenLeft.png"); // loading left side player png
     Texture playerTexRight;
-    playerTexRight.loadFromFile("sprites/mouthOpenRight.png"); // loading player png
+    playerTexRight.loadFromFile("sprites/mouthOpenRight.png"); // loading default player png
     Texture playerTexUp;
-    playerTexUp.loadFromFile("sprites/mouthOpenUp.png"); // loading player png
+    playerTexUp.loadFromFile("sprites/mouthOpenUp.png"); // loading upwards player png
     Texture playerTexDown;
-    playerTexDown.loadFromFile("sprites/mouthOpenDown.png"); // loading player png
+    playerTexDown.loadFromFile("sprites/mouthOpenDown.png"); // loading downwards player png
     PLAYER playerObj(playerTexRight); // creating player obj
 
     pthread_attr_t detachProp; // setting detachable property
@@ -432,6 +429,6 @@ int main()
     pthread_t startGame;
     pthread_create(&startGame, NULL, GAMEINIT, NULL); // initiating main game thread
     pthread_join(startGame, NULL); // waiting for game thread to exit
-    pthread_mutex_destroy(&ghostMovementSynchronizor);
+    pthread_mutex_destroy(&objectMovementSynchronisor);
     return 0;
 }
