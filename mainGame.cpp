@@ -71,12 +71,16 @@ public:
 class PLAYER{
 private:
     Sprite sprite;
-
+    
 public:
+    bool moveLeft = false; // boolean for left movement
+    bool moveRight = true; // boolean for right movement
+    bool moveUp = false; // boolean for up movement
+    bool moveDown = false; // boolean for down movement
     PLAYER(Texture& texture){
         this->sprite.setTexture(texture);
-        this->sprite.setScale(0.6f, 0.63f);
-        this->sprite.setPosition(PLAYERPOSX * CELLSize + 101, PLAYERPOSY * CELLSize + 100);
+        this->sprite.setScale(0.8f, 0.8f);
+        this->sprite.setPosition(PLAYERPOSX * CELLSize + 105, PLAYERPOSY * CELLSize + 100);
     }
     // Getter for sprite
     Sprite& getSprite() { return this->sprite; }
@@ -85,136 +89,121 @@ public:
     //to change the face of pacman
     void changeTexture(Texture& tex){
         this->sprite.setTexture(tex);
-        this->sprite.setScale(0.6f, 0.63f);
+        this->sprite.setScale(0.8f, 0.8f);
     }
 };
 
 void *PLAYERTHREAD(void *arg){
     PLAYER *player = (PLAYER*) arg;
-    bool moveLeft = false; // boolean for left movement
-    bool moveRight = false; // boolean for right movement
-    bool moveUp = false; // boolean for up movement
-    bool moveDown = false; // boolean for down movement
+    
     bool collisionDetected = false; // boolean for collision detection
 
     while(!threadExit){
+        pthread_mutex_lock(&ghostMovementSynchronizor);
         FloatRect playerBounds = player->getSprite().getGlobalBounds();
-        Event event;
         // Defining collision rectangles for each side of the player
         FloatRect leftRect(playerBounds.left - 1, playerBounds.top, 1, playerBounds.height); // getting left rect of player
         FloatRect rightRect(playerBounds.left + playerBounds.width, playerBounds.top, 1, playerBounds.height); // getting right rect of player
         FloatRect topRect(playerBounds.left, playerBounds.top - 1, playerBounds.width, 1); // getting top rect of player
         FloatRect bottomRect(playerBounds.left, playerBounds.top + playerBounds.height, playerBounds.width, 1); // getting bottom rect of player
 
-        for(int i = 0; i<gridRows; i++){
-            for(int j = 0; j<gridCols; j++){
+        // for(int i = 0; i<gridRows; i++){
+        //     for(int j = 0; j<gridCols; j++){
+        //         if (maze1[i][j] == 1) {
+        //             mazeBox.setPosition(j * CELLSize + 100, i * CELLSize + 100); // placing temporary mazeBox at current location
+        //             
+        //             if(moveUp && topRect.intersects(mazeBox.getGlobalBounds())){
+        //                 moveUp = false;
+        //                 collisionDetected = true;
 
-                if(Keyboard::isKeyPressed(Keyboard::A)){
-                    player->getSprite().setRotation(-180);
-                    moveLeft = true;
-                }
-                if(Keyboard::isKeyPressed(Keyboard::S)){
-                    player->getSprite().setRotation(90);
-                    moveDown = true;
-                }
-                if(Keyboard::isKeyPressed(Keyboard::W)){
-                    player->getSprite().setRotation(-90);
-                    moveUp = true;
-                }
-                if(Keyboard::isKeyPressed(Keyboard::D)){
-                    player->getSprite().setRotation(180);
-                    moveRight = true;
-                }
+        //                 while(collisionDetected){
+        //                     if(Keyboard::isKeyPressed(Keyboard::A) && !leftRect.intersects(mazeBox.getGlobalBounds())){
+        //                         collisionDetected = false;
+        //                         moveLeft = true;
+        //                     }
+        //                     if(Keyboard::isKeyPressed(Keyboard::S) && !bottomRect.intersects(mazeBox.getGlobalBounds())){
+        //                         collisionDetected = false;
+        //                         moveDown = true;
+        //                     }
+        //                     if(Keyboard::isKeyPressed(Keyboard::D) && !rightRect.intersects(mazeBox.getGlobalBounds())){
+        //                         collisionDetected = false;
+        //                         moveRight = true;
+        //                     }
+        //                 }
+        //             }
 
-                if(moveUp && topRect.intersects(mazeBox.getGlobalBounds())){
-                    moveUp = false;
-                    collisionDetected = true;
+        //             if(moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())){
+        //                 moveDown = false;
+        //                 collisionDetected = true;
 
-                    while(collisionDetected){
-                        if(Keyboard::isKeyPressed(Keyboard::A) && !leftRect.intersects(mazeBox.getGlobalBounds())){
-                            collisionDetected = false;
-                            moveLeft = true;
-                        }
-                        if(Keyboard::isKeyPressed(Keyboard::S) && !bottomRect.intersects(mazeBox.getGlobalBounds())){
-                            collisionDetected = false;
-                            moveDown = true;
-                        }
-                        if(Keyboard::isKeyPressed(Keyboard::D) && !rightRect.intersects(mazeBox.getGlobalBounds())){
-                            collisionDetected = false;
-                            moveRight = true;
-                        }
-                    }
-                }
+        //                 while(collisionDetected){
+        //                     if(Keyboard::isKeyPressed(Keyboard::A) && !leftRect.intersects(mazeBox.getGlobalBounds())){
+        //                         collisionDetected = false;
+        //                         moveLeft = true;
+        //                     }
+        //                     if(Keyboard::isKeyPressed(Keyboard::W) && !topRect.intersects(mazeBox.getGlobalBounds())){
+        //                         collisionDetected = false;
+        //                         moveUp = true;
+        //                     }
+        //                     if(Keyboard::isKeyPressed(Keyboard::D) && !rightRect.intersects(mazeBox.getGlobalBounds())){
+        //                         collisionDetected = false;
+        //                         moveRight = true;
+        //                     }
+        //                 }
+        //             }
 
-                if(moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())){
-                    moveDown = false;
-                    collisionDetected = true;
+        //             if(moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())){
+        //                 moveLeft = false;
+        //                 collisionDetected = true;
 
-                    while(collisionDetected){
-                        if(Keyboard::isKeyPressed(Keyboard::A) && !leftRect.intersects(mazeBox.getGlobalBounds())){
-                            collisionDetected = false;
-                            moveLeft = true;
-                        }
-                        if(Keyboard::isKeyPressed(Keyboard::W) && !topRect.intersects(mazeBox.getGlobalBounds())){
-                            collisionDetected = false;
-                            moveUp = true;
-                        }
-                        if(Keyboard::isKeyPressed(Keyboard::D) && !rightRect.intersects(mazeBox.getGlobalBounds())){
-                            collisionDetected = false;
-                            moveRight = true;
-                        }
-                    }
-                }
+        //                 while(collisionDetected){
+        //                     if(Keyboard::isKeyPressed(Keyboard::D) && !rightRect.intersects(mazeBox.getGlobalBounds())){
+        //                         collisionDetected = false;
+        //                         moveRight = true;
+        //                     }
+        //                     if(Keyboard::isKeyPressed(Keyboard::W) && !topRect.intersects(mazeBox.getGlobalBounds())){
+        //                         collisionDetected = false;
+        //                         moveUp = true;
+        //                     }
+        //                     if(Keyboard::isKeyPressed(Keyboard::S) && !bottomRect.intersects(mazeBox.getGlobalBounds())){
+        //                         collisionDetected = false;
+        //                         moveDown = true;
+        //                     }
+        //                 }
+        //             }
 
-                if(moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())){
-                    moveLeft = false;
-                    collisionDetected = true;
+        //             if(moveRight && rightRect.intersects(mazeBox.getGlobalBounds())){
+        //                 moveRight = false;
+        //                 collisionDetected = true;
 
-                    while(collisionDetected){
-                        if(Keyboard::isKeyPressed(Keyboard::D) && !rightRect.intersects(mazeBox.getGlobalBounds())){
-                            collisionDetected = false;
-                            moveRight = true;
-                        }
-                        if(Keyboard::isKeyPressed(Keyboard::W) && !topRect.intersects(mazeBox.getGlobalBounds())){
-                            collisionDetected = false;
-                            moveUp = true;
-                        }
-                        if(Keyboard::isKeyPressed(Keyboard::S) && !bottomRect.intersects(mazeBox.getGlobalBounds())){
-                            collisionDetected = false;
-                            moveDown = true;
-                        }
-                    }
-                }
-
-                if(moveRight && rightRect.intersects(mazeBox.getGlobalBounds())){
-                    moveRight = false;
-                    collisionDetected = true;
-
-                    while(collisionDetected){
-                        if(Keyboard::isKeyPressed(Keyboard::A) && !leftRect.intersects(mazeBox.getGlobalBounds())){
-                            collisionDetected = false;
-                            moveLeft = true;                            
-                        }
-                        if(Keyboard::isKeyPressed(Keyboard::W) && !topRect.intersects(mazeBox.getGlobalBounds())){
-                            collisionDetected = false;
-                            moveUp = true;                           
-                        }
-                        if(Keyboard::isKeyPressed(Keyboard::S) && !bottomRect.intersects(mazeBox.getGlobalBounds())){
-                            collisionDetected = false;
-                            moveDown = true;                            
-                        }
-                    }
-                }
-            }            
-        }
-        if (moveUp)
-                player->getSprite().move(0.0f, -1.0f);
-        else if (moveLeft)
+        //                 while(collisionDetected){
+        //                     if(Keyboard::isKeyPressed(Keyboard::A) && !leftRect.intersects(mazeBox.getGlobalBounds())){
+        //                         collisionDetected = false;
+        //                         moveLeft = true;                            
+        //                     }
+        //                     if(Keyboard::isKeyPressed(Keyboard::W) && !topRect.intersects(mazeBox.getGlobalBounds())){
+        //                         collisionDetected = false;
+        //                         moveUp = true;                           
+        //                     }
+        //                     if(Keyboard::isKeyPressed(Keyboard::S) && !bottomRect.intersects(mazeBox.getGlobalBounds())){
+        //                         collisionDetected = false;
+        //                         moveDown = true;                            
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }            
+        // }
+        if (player->moveUp)
+            player->getSprite().move(0.0f, -1.0f);
+        else if (player->moveLeft)
             player->getSprite().move(-1.0f, 0.0f);
-        else if (moveRight)
+        else if (player->moveRight)
             player->getSprite().move(1.0f, 0.0f);
-        else if (moveDown)
+        else if (player->moveDown)
             player->getSprite().move(0.0f, 1.0f);
+        pthread_mutex_unlock(&ghostMovementSynchronizor);
+        sleep(milliseconds(5));
     }
     pthread_exit(NULL);    
 }
@@ -430,30 +419,63 @@ void *GAMEINIT(void *arg) { // main game thread
     blueGhostTex.loadFromFile("sprites/blueGhost.png"); // loading a red ghost png
     GHOST blueGhostObj(blueGhostTex, 4, 0); // creating a ghost obj
 
-    Texture playerTex;
-    playerTex.loadFromFile("sprites/mouthOpen.png"); // loading player png
-    PLAYER playerObj(playerTex); // creating player obj
+    Texture playerTexLeft;
+    playerTexLeft.loadFromFile("sprites/mouthOpenLeft.png"); // loading player png
+    Texture playerTexRight;
+    playerTexRight.loadFromFile("sprites/mouthOpenRight.png"); // loading player png
+    Texture playerTexUp;
+    playerTexUp.loadFromFile("sprites/mouthOpenUp.png"); // loading player png
+    Texture playerTexDown;
+    playerTexDown.loadFromFile("sprites/mouthOpenDown.png"); // loading player png
+    PLAYER playerObj(playerTexRight); // creating player obj
 
-    pthread_attr_t ghostProp; // setting detachable property
-    pthread_attr_init(&ghostProp); // initializing that property
-    pthread_attr_setdetachstate(&ghostProp, PTHREAD_CREATE_DETACHED); // making it detachable
+    pthread_attr_t detachProp; // setting detachable property
+    pthread_attr_init(&detachProp); // initializing that property
+    pthread_attr_setdetachstate(&detachProp, PTHREAD_CREATE_DETACHED); // making it detachable
     pthread_t ghostThread[4]; 
-    pthread_create(&ghostThread[0], &ghostProp, GHOSTTHREAD, (void **) &redGhostObj); // creating a detachable ghost thread
-    pthread_create(&ghostThread[1], &ghostProp, GHOSTTHREAD, (void **) &greenGhostObj); // creating a detachable ghost thread
-    pthread_create(&ghostThread[2], &ghostProp, GHOSTTHREAD, (void **) &pinkGhostObj); // creating a detachable ghost thread
-    pthread_create(&ghostThread[3], &ghostProp, GHOSTTHREAD, (void **) &yellowGhostObj); // creating a detachable ghost thread
+    pthread_create(&ghostThread[0], &detachProp, GHOSTTHREAD, (void **) &redGhostObj); // creating a detachable ghost thread
+    pthread_create(&ghostThread[1], &detachProp, GHOSTTHREAD, (void **) &greenGhostObj); // creating a detachable ghost thread
+    pthread_create(&ghostThread[2], &detachProp, GHOSTTHREAD, (void **) &pinkGhostObj); // creating a detachable ghost thread
+    pthread_create(&ghostThread[3], &detachProp, GHOSTTHREAD, (void **) &yellowGhostObj); // creating a detachable ghost thread
 
-    pthread_attr_t playerProp; // setting detachable property
-    pthread_attr_init(&playerProp); // initializing that property
-    pthread_attr_setdetachstate(&playerProp, PTHREAD_CREATE_DETACHED); // making it detachable
     pthread_t playerThread; 
-    pthread_create(&playerThread, &playerProp, PLAYERTHREAD, (void **) &playerObj); // creating a detachable player thread
+    pthread_create(&playerThread, &detachProp, PLAYERTHREAD, (void **) &playerObj); // creating a detachable player thread
+    pthread_attr_destroy(&detachProp);
 
     while (gameWindow.isOpen()) {
         Event event;
         while (gameWindow.pollEvent(event)) { // checking for window close command
             if (event.type == Event::Closed)
                 gameWindow.close();
+        }
+        // taking user input
+        if(Keyboard::isKeyPressed(Keyboard::A)){
+            playerObj.changeTexture(playerTexLeft);
+            playerObj.moveLeft = true;
+            playerObj.moveRight = false;
+            playerObj.moveUp = false;
+            playerObj.moveDown = false;
+        }
+        if(Keyboard::isKeyPressed(Keyboard::W)){
+            playerObj.changeTexture(playerTexUp);
+            playerObj.moveLeft = false;
+            playerObj.moveRight = false;
+            playerObj.moveUp = true;
+            playerObj.moveDown = false;
+        }
+        if(Keyboard::isKeyPressed(Keyboard::S)){
+            playerObj.changeTexture(playerTexDown);
+            playerObj.moveLeft = false;
+            playerObj.moveRight = false;
+            playerObj.moveUp = false;
+            playerObj.moveDown = true;
+        }
+        if(Keyboard::isKeyPressed(Keyboard::D)){
+            playerObj.changeTexture(playerTexRight);
+            playerObj.moveLeft = false;
+            playerObj.moveRight = true;
+            playerObj.moveUp = false;
+            playerObj.moveDown = false;
         }
         gameWindow.clear(); // clearing the buffer window
         DRAWMAZE(gameWindow, Food, mazeBox); // Drawing the maze with food and mazeBoxes
