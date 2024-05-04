@@ -73,155 +73,162 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
     bool moveUp = true; // boolean for up movement
     bool moveDown = false; // boolean for down movement
     bool collisionDetected = false; // boolean for collision detection
-    bool lefrHome = false;
+    bool leftHome = false;
     // initially only up ward movement is allowed because the ghost has to move up to come out of the home
 
     while (!threadExit) { // loop iterate until threadExit becomes true
-        pthread_mutex_lock(&ghostMovementSynchronizor);
-        // Getting the global bounds of the ghost
-        FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
+        if (currentGhostToLeave == ghost->getTurn() || leftHome) {
+            pthread_mutex_lock(&ghostMovementSynchronizor);
+            // Getting the global bounds of the ghost
+            FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
 
-        // Defining collision rectangles for each side of the ghost
-        FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
-        FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height); // getting right rect of ghost
-        FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
-        FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
+            // Defining collision rectangles for each side of the ghost
+            FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
+            FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height); // getting right rect of ghost
+            FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
+            FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
 
-        // Iterating through all maze boxes
-        for (int i = 0; i < gridRows; ++i) {
-            for (int j = 0; j < gridCols; ++j) {
-                if (maze1[i][j] == 1) { // if maze[i][j] is 1 then we can place a temporary mazeBox there
-                    mazeBox.setPosition(j * CELLSize + 100, i * CELLSize + 100); // placing temporary mazeBox at current location
-                    // if ghost is moving up wards and collision is detected above the ghost
-                    if (moveUp && topRect.intersects(mazeBox.getGlobalBounds())) {
-                        collisionDetected = true; // since collision is detected, so we set it to true
-                        while (collisionDetected){
-                            int randomDirection = abs(rand() % 3); // we get random direction for our ghost
-                            // checking if that direction is available or not
-                            switch(randomDirection) {
-                                case 0: // for left movement
-                                    if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
-                                        moveLeft = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 1: // for right movement
-                                    if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
-                                        moveRight = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 2: // for down movement
-                                    if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                                        moveDown = true; 
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
+            // Iterating through all maze boxes
+            for (int i = 0; i < gridRows; ++i) {
+                for (int j = 0; j < gridCols; ++j) {
+                    if (maze1[i][j] == 1) { // if maze[i][j] is 1 then we can place a temporary mazeBox there
+                        mazeBox.setPosition(j * CELLSize + 100, i * CELLSize + 100); // placing temporary mazeBox at current location
+                        // if ghost is moving up wards and collision is detected above the ghost
+                        if (moveUp && topRect.intersects(mazeBox.getGlobalBounds())) {
+                            if (!leftHome) {
+                                currentGhostToLeave++;
+                                leftHome = true;
+                                cout << "Current ghost: " << currentGhostToLeave << endl;
                             }
-                        }
-                        moveUp = false;
-                    }
-                    // if ghost is moving left wards and collision is detected on left side of the ghost
-                    if (moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())) {
-                        collisionDetected = true; // since collision is detected, so we set it to true
-                        while (collisionDetected){
-                            int randomDirection = abs(rand() % 3); // we get random direction for our ghost
-                            // checking if that direction is available or not
-                            switch(randomDirection) {
-                                case 0: // for left movement
-                                    if (!topRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle above, we allow upward movement
-                                        moveUp = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 1: // for right movement
-                                    if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
-                                        moveRight = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 2: // for down movement
-                                    if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                                        moveDown = true; 
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
+                            collisionDetected = true; // since collision is detected, so we set it to true
+                            while (collisionDetected){
+                                int randomDirection = abs(rand() % 3); // we get random direction for our ghost
+                                // checking if that direction is available or not
+                                switch(randomDirection) {
+                                    case 0: // for left movement
+                                        if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
+                                            moveLeft = true;
+                                            collisionDetected = false; // collision detected is set to false
+                                        }
+                                    break;
+                                    case 1: // for right movement
+                                        if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
+                                            moveRight = true;
+                                            collisionDetected = false; // collision detected is set to false
+                                        }
+                                    break;
+                                    case 2: // for down movement
+                                        if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
+                                            moveDown = true; 
+                                            collisionDetected = false; // collision detected is set to false
+                                        }
+                                    break;
+                                }
                             }
+                            moveUp = false;
                         }
-                        moveLeft = false;
-                    }
-                    // if ghost is moving right wards and collision is detected on right side of the ghost
-                    if (moveRight && rightRect.intersects(mazeBox.getGlobalBounds())) {
-                        collisionDetected = true; // since collision is detected, so we set it to true
-                        while (collisionDetected){
-                            int randomDirection = abs(rand() % 3); // we get random direction for our ghost
-                            // checking if that direction is available or not
-                            switch(randomDirection) {
-                                case 0: // for left movement
-                                    if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
-                                        moveLeft = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 1: // for right movement
-                                    if (!topRect.intersects(mazeBox.getGlobalBounds())) {
-                                        moveUp = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 2: // for down movement
-                                    if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                                        moveDown = true; 
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
+                        // if ghost is moving left wards and collision is detected on left side of the ghost
+                        if (moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())) {
+                            collisionDetected = true; // since collision is detected, so we set it to true
+                            while (collisionDetected){
+                                int randomDirection = abs(rand() % 3); // we get random direction for our ghost
+                                // checking if that direction is available or not
+                                switch(randomDirection) {
+                                    case 0: // for left movement
+                                        if (!topRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle above, we allow upward movement
+                                            moveUp = true;
+                                            collisionDetected = false; // collision detected is set to false
+                                        }
+                                    break;
+                                    case 1: // for right movement
+                                        if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
+                                            moveRight = true;
+                                            collisionDetected = false; // collision detected is set to false
+                                        }
+                                    break;
+                                    case 2: // for down movement
+                                        if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
+                                            moveDown = true; 
+                                            collisionDetected = false; // collision detected is set to false
+                                        }
+                                    break;
+                                }
                             }
+                            moveLeft = false;
                         }
-                        moveRight = false;
-                    }
-                    // if ghost is moving down wards and collision is detected below the ghost
-                    if (moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                        collisionDetected = true; // since collision is detected, so we set it to true
-                        while (collisionDetected){
-                            int randomDirection = abs(rand() % 3); // we get random direction for our ghost
-                            // checking if that direction is available or not
-                            switch(randomDirection) {
-                                case 0: // for left movement
-                                    if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
-                                        moveLeft = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 1: // for right movement
-                                    if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
-                                        moveRight = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 2: // for down movement
-                                    if (!topRect.intersects(mazeBox.getGlobalBounds())) {
-                                        moveUp = true; 
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
+                        // if ghost is moving right wards and collision is detected on right side of the ghost
+                        if (moveRight && rightRect.intersects(mazeBox.getGlobalBounds())) {
+                            collisionDetected = true; // since collision is detected, so we set it to true
+                            while (collisionDetected){
+                                int randomDirection = abs(rand() % 3); // we get random direction for our ghost
+                                // checking if that direction is available or not
+                                switch(randomDirection) {
+                                    case 0: // for left movement
+                                        if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
+                                            moveLeft = true;
+                                            collisionDetected = false; // collision detected is set to false
+                                        }
+                                    break;
+                                    case 1: // for right movement
+                                        if (!topRect.intersects(mazeBox.getGlobalBounds())) {
+                                            moveUp = true;
+                                            collisionDetected = false; // collision detected is set to false
+                                        }
+                                    break;
+                                    case 2: // for down movement
+                                        if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
+                                            moveDown = true; 
+                                            collisionDetected = false; // collision detected is set to false
+                                        }
+                                    break;
+                                }
                             }
+                            moveRight = false;
                         }
-                        moveDown = false;
+                        // if ghost is moving down wards and collision is detected below the ghost
+                        if (moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())) {
+                            collisionDetected = true; // since collision is detected, so we set it to true
+                            while (collisionDetected){
+                                int randomDirection = abs(rand() % 3); // we get random direction for our ghost
+                                // checking if that direction is available or not
+                                switch(randomDirection) {
+                                    case 0: // for left movement
+                                        if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
+                                            moveLeft = true;
+                                            collisionDetected = false; // collision detected is set to false
+                                        }
+                                    break;
+                                    case 1: // for right movement
+                                        if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
+                                            moveRight = true;
+                                            collisionDetected = false; // collision detected is set to false
+                                        }
+                                    break;
+                                    case 2: // for down movement
+                                        if (!topRect.intersects(mazeBox.getGlobalBounds())) {
+                                            moveUp = true; 
+                                            collisionDetected = false; // collision detected is set to false
+                                        }
+                                    break;
+                                }
+                            }
+                            moveDown = false;
+                        }
                     }
                 }
             }
+            // Moving the ghost according to the position available
+            if (moveUp)
+                ghost->getSprite().move(0.0f, -1.0f);
+            else if (moveLeft)
+                ghost->getSprite().move(-1.0f, 0.0f);
+            else if (moveRight)
+                ghost->getSprite().move(1.0f, 0.0f);
+            else if (moveDown)
+                ghost->getSprite().move(0.0f, 1.0f);
+            pthread_mutex_unlock(&ghostMovementSynchronizor);
+            sleep(milliseconds(5));
         }
-        // Moving the ghost according to the position available
-        if (moveUp)
-            ghost->getSprite().move(0.0f, -1.0f);
-        else if (moveLeft)
-            ghost->getSprite().move(-1.0f, 0.0f);
-        else if (moveRight)
-            ghost->getSprite().move(1.0f, 0.0f);
-        else if (moveDown)
-            ghost->getSprite().move(0.0f, 1.0f);
-        pthread_mutex_unlock(&ghostMovementSynchronizor);
-        sleep(milliseconds(5));
     }
     pthread_exit(NULL);
 }
@@ -258,17 +265,17 @@ void *GAMEINIT(void *arg) { // main game thread
     greenGhostTex.loadFromFile("sprites/greenGhost.png"); // loading a red ghost png
     GHOST greenGhostObj(greenGhostTex, 1, 0); // creating a ghost obj
 
-    Texture blueGhostTex;
-    blueGhostTex.loadFromFile("sprites/blueGhost.png"); // loading a red ghost png
-    GHOST blueGhostObj(blueGhostTex, 2, 0); // creating a ghost obj
-
     Texture yellowGhostTex;
     yellowGhostTex.loadFromFile("sprites/yellowGhost.png"); // loading a red ghost png
-    GHOST yellowGhostObj(yellowGhostTex, 3, 0); // creating a ghost obj
+    GHOST yellowGhostObj(yellowGhostTex, 2, 0); // creating a ghost obj
 
     Texture pinkGhostTex;
     pinkGhostTex.loadFromFile("sprites/pinkGhost.png"); // loading a red ghost png
-    GHOST pinkGhostObj(pinkGhostTex, 4, 0); // creating a ghost obj
+    GHOST pinkGhostObj(pinkGhostTex, 3, 0); // creating a ghost obj
+
+    Texture blueGhostTex;
+    blueGhostTex.loadFromFile("sprites/blueGhost.png"); // loading a red ghost png
+    GHOST blueGhostObj(blueGhostTex, 4, 0); // creating a ghost obj
 
     pthread_attr_t ghostProp; // setting detachable property
     pthread_attr_init(&ghostProp); // initializing that property
