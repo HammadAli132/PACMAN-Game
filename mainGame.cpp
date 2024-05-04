@@ -107,93 +107,29 @@ void *PLAYERTHREAD(void *arg){
         FloatRect topRect(playerBounds.left, playerBounds.top - 1, playerBounds.width, 1); // getting top rect of player
         FloatRect bottomRect(playerBounds.left, playerBounds.top + playerBounds.height, playerBounds.width, 1); // getting bottom rect of player
 
-        // for(int i = 0; i<gridRows; i++){
-        //     for(int j = 0; j<gridCols; j++){
-        //         if (maze1[i][j] == 1) {
-        //             mazeBox.setPosition(j * CELLSize + 100, i * CELLSize + 100); // placing temporary mazeBox at current location
-        //             
-        //             if(moveUp && topRect.intersects(mazeBox.getGlobalBounds())){
-        //                 moveUp = false;
-        //                 collisionDetected = true;
+        // checking collisions with walls
+        for(int i = 0; i<gridRows; i++){
+            for(int j = 0; j<gridCols; j++){
+                if (maze1[i][j] == 1) {
+                    mazeBox.setPosition(j * CELLSize + 100, i * CELLSize + 100); // placing temporary mazeBox at current location
+                    if(player->moveUp && topRect.intersects(mazeBox.getGlobalBounds())){
+                        player->moveUp = false;
+                    }
 
-        //                 while(collisionDetected){
-        //                     if(Keyboard::isKeyPressed(Keyboard::A) && !leftRect.intersects(mazeBox.getGlobalBounds())){
-        //                         collisionDetected = false;
-        //                         moveLeft = true;
-        //                     }
-        //                     if(Keyboard::isKeyPressed(Keyboard::S) && !bottomRect.intersects(mazeBox.getGlobalBounds())){
-        //                         collisionDetected = false;
-        //                         moveDown = true;
-        //                     }
-        //                     if(Keyboard::isKeyPressed(Keyboard::D) && !rightRect.intersects(mazeBox.getGlobalBounds())){
-        //                         collisionDetected = false;
-        //                         moveRight = true;
-        //                     }
-        //                 }
-        //             }
+                    if(player->moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())){
+                        player->moveDown = false;
+                    }
 
-        //             if(moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())){
-        //                 moveDown = false;
-        //                 collisionDetected = true;
+                    if(player->moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())){
+                        player->moveLeft = false;
+                    }
 
-        //                 while(collisionDetected){
-        //                     if(Keyboard::isKeyPressed(Keyboard::A) && !leftRect.intersects(mazeBox.getGlobalBounds())){
-        //                         collisionDetected = false;
-        //                         moveLeft = true;
-        //                     }
-        //                     if(Keyboard::isKeyPressed(Keyboard::W) && !topRect.intersects(mazeBox.getGlobalBounds())){
-        //                         collisionDetected = false;
-        //                         moveUp = true;
-        //                     }
-        //                     if(Keyboard::isKeyPressed(Keyboard::D) && !rightRect.intersects(mazeBox.getGlobalBounds())){
-        //                         collisionDetected = false;
-        //                         moveRight = true;
-        //                     }
-        //                 }
-        //             }
-
-        //             if(moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())){
-        //                 moveLeft = false;
-        //                 collisionDetected = true;
-
-        //                 while(collisionDetected){
-        //                     if(Keyboard::isKeyPressed(Keyboard::D) && !rightRect.intersects(mazeBox.getGlobalBounds())){
-        //                         collisionDetected = false;
-        //                         moveRight = true;
-        //                     }
-        //                     if(Keyboard::isKeyPressed(Keyboard::W) && !topRect.intersects(mazeBox.getGlobalBounds())){
-        //                         collisionDetected = false;
-        //                         moveUp = true;
-        //                     }
-        //                     if(Keyboard::isKeyPressed(Keyboard::S) && !bottomRect.intersects(mazeBox.getGlobalBounds())){
-        //                         collisionDetected = false;
-        //                         moveDown = true;
-        //                     }
-        //                 }
-        //             }
-
-        //             if(moveRight && rightRect.intersects(mazeBox.getGlobalBounds())){
-        //                 moveRight = false;
-        //                 collisionDetected = true;
-
-        //                 while(collisionDetected){
-        //                     if(Keyboard::isKeyPressed(Keyboard::A) && !leftRect.intersects(mazeBox.getGlobalBounds())){
-        //                         collisionDetected = false;
-        //                         moveLeft = true;                            
-        //                     }
-        //                     if(Keyboard::isKeyPressed(Keyboard::W) && !topRect.intersects(mazeBox.getGlobalBounds())){
-        //                         collisionDetected = false;
-        //                         moveUp = true;                           
-        //                     }
-        //                     if(Keyboard::isKeyPressed(Keyboard::S) && !bottomRect.intersects(mazeBox.getGlobalBounds())){
-        //                         collisionDetected = false;
-        //                         moveDown = true;                            
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     }            
-        // }
+                    if(player->moveRight && rightRect.intersects(mazeBox.getGlobalBounds())){
+                        player->moveRight = false;
+                    }
+                }
+            }            
+        }
         if (player->moveUp)
             player->getSprite().move(0.0f, -1.0f);
         else if (player->moveLeft)
