@@ -10,6 +10,8 @@ using namespace sf;
 #define CELLSize 50
 #define GHOSTHOMEX 10
 #define GHOSTHOMEY 8
+#define PLAYERPOSX 1
+#define PLAYERPOSY 15
 const int gridRows = GRIDHEIGHT / CELLSize;
 const int gridCols = GRIDWIDTH / CELLSize;
 vector<vector<int>> maze1 = {
@@ -64,6 +66,22 @@ public:
     int getMode() const { return mode; }
     // Setter for mode
     void setMode(int mode) { this->mode = mode; }
+};
+
+class PLAYER{
+private:
+    Sprite sprite;
+
+public:
+    PLAYER(Texture& texture){
+        this->sprite.setTexture(texture);
+        this->sprite.setScale(0.6f, 0.63f);
+        this->sprite.setPosition(PLAYERPOSX * CELLSize + 101, PLAYERPOSY * CELLSize + 100);
+    }
+    // Getter for sprite
+    Sprite& getSprite() { return this->sprite; }
+    // Setter for sprite
+    void setSprite(Sprite sprite) { this->sprite = sprite; }
 };
 
 void *GHOSTTHREAD(void *arg) { // this is the ghost thread
@@ -277,6 +295,10 @@ void *GAMEINIT(void *arg) { // main game thread
     blueGhostTex.loadFromFile("sprites/blueGhost.png"); // loading a red ghost png
     GHOST blueGhostObj(blueGhostTex, 4, 0); // creating a ghost obj
 
+    Texture playerTex;
+    playerTex.loadFromFile("sprites/mouthOpen.png"); // loading player png
+    PLAYER playerObj(playerTex); // creating player obj
+
     pthread_attr_t ghostProp; // setting detachable property
     pthread_attr_init(&ghostProp); // initializing that property
     pthread_attr_setdetachstate(&ghostProp, PTHREAD_CREATE_DETACHED); // making it detachable
@@ -298,6 +320,7 @@ void *GAMEINIT(void *arg) { // main game thread
         gameWindow.draw(greenGhostObj.getSprite());
         gameWindow.draw(pinkGhostObj.getSprite());
         gameWindow.draw(yellowGhostObj.getSprite());
+        gameWindow.draw(playerObj.getSprite());
         gameWindow.display(); // swapping the buffer window with main window
     }
 
