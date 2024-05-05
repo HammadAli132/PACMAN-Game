@@ -38,20 +38,23 @@ Sprite mazeBox; // creating a sprite for Game Grid
 Texture box; // creating a texture for maze.png
 pthread_mutex_t objectMovementSynchronisor;
 int currentGhostToLeave = 0;
+#define SPEEDBOOST 0.2f
 
 class GHOST {
 private:
     Sprite sprite; // Ghost sprite
     int turn; // Ghost's turn
     int mode; // Ghost mode (e.g., scatter, chase)
+    float speed;
 
 public:
-    GHOST(Texture &text, int t, int m = 0) { // Constructor
+    GHOST(Texture &text, int t, int m = 0, float sp = 0) { // Constructor
         this->sprite.setTexture(text);
         this->sprite.setScale(0.3f, 0.3f);
         this->sprite.setPosition(GHOSTHOMEX * CELLSize + 101, GHOSTHOMEY * CELLSize + 100);
         this->turn = t;
         this->mode = m;
+        this->speed = sp;
     } 
     // Getter for sprite
     Sprite& getSprite() { return sprite; }
@@ -65,6 +68,10 @@ public:
     int getMode() const { return mode; }
     // Setter for mode
     void setMode(int mode) { this->mode = mode; }
+    // Getter for speed
+    float getSpeed() const { return speed; }
+    // Setter for speed
+    void setSpeed(int sp) { this->speed = sp; }
 };
 
 class PLAYER{
@@ -294,13 +301,13 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
             }
             // Moving the ghost according to the position available
             if (moveUp)
-                ghost->getSprite().move(0.0f, -1.0f);
+                ghost->getSprite().move(0.0f, -1.0f - ghost->getSpeed());
             else if (moveLeft)
-                ghost->getSprite().move(-1.0f, 0.0f);
+                ghost->getSprite().move(-1.0f - ghost->getSpeed(), 0.0f);
             else if (moveRight)
-                ghost->getSprite().move(1.0f, 0.0f);
+                ghost->getSprite().move(1.0f + ghost->getSpeed(), 0.0f);
             else if (moveDown)
-                ghost->getSprite().move(0.0f, 1.0f);
+                ghost->getSprite().move(0.0f, 1.0f + ghost->getSpeed());
             pthread_mutex_unlock(&objectMovementSynchronisor);
             sleep(milliseconds(5));
         }
@@ -334,7 +341,7 @@ void *GAMEINIT(void *arg) { // main game thread
 
     Texture redGhostTex;
     redGhostTex.loadFromFile("sprites/redGhost.png"); // loading a red ghost png
-    GHOST redGhostObj(redGhostTex, 0, 0); // creating a ghost obj
+    GHOST redGhostObj(redGhostTex, 0, 0, SPEEDBOOST); // creating a ghost obj
 
     Texture greenGhostTex;
     greenGhostTex.loadFromFile("sprites/greenGhost.png"); // loading a red ghost png
