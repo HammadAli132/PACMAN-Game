@@ -87,6 +87,7 @@ public:
 class PLAYER{
 private:
     Sprite sprite;
+    int score;
     
 public:
     bool moveLeft = false; // boolean for left movement
@@ -97,6 +98,7 @@ public:
         this->sprite.setTexture(texture);
         this->sprite.setScale(0.8f, 0.8f);
         this->sprite.setPosition(PLAYERPOSX * CELLSIZE + 105, PLAYERPOSY * CELLSIZE + 100);
+        this->score = 0;
     }
     // Getter for sprite
     Sprite& getSprite() { return this->sprite; }
@@ -107,6 +109,10 @@ public:
         this->sprite.setTexture(tex);
         this->sprite.setScale(0.8f, 0.8f);
     }
+    //getter for score
+    int getScore() { return this->score; }
+    //setter for score;
+    void setScore(int Score) { this->score = Score; }
 };
 
 void *PLAYERTHREAD(void *arg){
@@ -147,7 +153,10 @@ void *PLAYERTHREAD(void *arg){
                     FloatRect FoodBounds = Food.getGlobalBounds();
                     if(playerBounds.intersects(FoodBounds)){
                         maze1[i][j] = -99;
+                        int score = player->getScore();
+                        player->setScore(score += 1); //increasing score as the player eats food
                     }
+                    
                 }
             }            
         }
@@ -558,6 +567,23 @@ void *GAMEINIT(void *arg) { // main game thread
 
     PLAYER playerObj(playerTexRight); // creating player obj
 
+    //to display the string "Score" on the upper left corner
+    Text displayScoreString;
+    Font font;
+    font.loadFromFile("sprites/The Hoca.ttf");
+    displayScoreString.setFont(font);
+    displayScoreString.setCharacterSize(24);
+    displayScoreString.setString("Score: ");
+    displayScoreString.setFillColor(Color::Red);
+    displayScoreString.setPosition(7, 13);
+
+    //to display the value of score on screen
+    Text displayScore;
+    displayScore.setFont(font);
+    displayScore.setCharacterSize(24);
+    displayScore.setFillColor(Color::Green);
+    displayScore.setPosition(95, 13);
+
     pthread_attr_t detachProp; // setting detachable property
     pthread_attr_init(&detachProp); // initializing that property
     pthread_attr_setdetachstate(&detachProp, PTHREAD_CREATE_DETACHED); // making it detachable
@@ -645,6 +671,9 @@ void *GAMEINIT(void *arg) { // main game thread
         gameWindow.draw(pinkGhostObj.getSprite());
         gameWindow.draw(yellowGhostObj.getSprite());
         gameWindow.draw(playerObj.getSprite());
+        gameWindow.draw(displayScoreString);
+        displayScore.setString(to_string(playerObj.getScore())); //converting score to string so that it can be displayed
+        gameWindow.draw(displayScore);        
         gameWindow.display(); // swapping the buffer window with main window
     }
 
