@@ -7,13 +7,13 @@ using namespace sf;
 //Globals
 #define GRIDHEIGHT 850
 #define GRIDWIDTH 1050
-#define CELLSize 50
+#define CELLSIZE 50
 #define GHOSTHOMEX 10
 #define GHOSTHOMEY 8
 #define PLAYERPOSX 1
 #define PLAYERPOSY 15
-const int gridRows = GRIDHEIGHT / CELLSize;
-const int gridCols = GRIDWIDTH / CELLSize;
+const int gridRows = GRIDHEIGHT / CELLSIZE;
+const int gridCols = GRIDWIDTH / CELLSIZE;
 vector<vector<int>> maze1 = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
@@ -47,7 +47,7 @@ private:
     int turn; // Ghost's turn
     int mode; // Ghost mode (e.g., scatter, chase)
     float speed; // this is ghost's speed used for speed boost
-    pair<int, int> target; // this is the ghost's target
+    pair<int, int> target; // this is the ghost's target having x and y co-ordinates
 
 public:
     bool moveLeft = false; // boolean for left movement
@@ -57,7 +57,7 @@ public:
     GHOST(Texture &text, int t, int m = 0, float sp = 0) { // Constructor
         this->sprite.setTexture(text);
         this->sprite.setScale(0.3f, 0.3f);
-        this->sprite.setPosition(GHOSTHOMEX * CELLSize + 101, GHOSTHOMEY * CELLSize + 100);
+        this->sprite.setPosition(GHOSTHOMEX * CELLSIZE + 101, GHOSTHOMEY * CELLSIZE + 100);
         this->turn = t;
         this->mode = m;
         this->speed = sp;
@@ -78,6 +78,10 @@ public:
     float getSpeed() const { return speed; }
     // Setter for speed
     void setSpeed(int sp) { this->speed = sp; }
+    // Getter for target
+    pair<int, int> getTarget() const { return target; }
+    // Setter for target
+    void setTarget(pair<int, int> tar) { this->target = tar; }
 };
 
 class PLAYER{
@@ -92,7 +96,7 @@ public:
     PLAYER(Texture& texture){
         this->sprite.setTexture(texture);
         this->sprite.setScale(0.8f, 0.8f);
-        this->sprite.setPosition(PLAYERPOSX * CELLSize + 105, PLAYERPOSY * CELLSize + 100);
+        this->sprite.setPosition(PLAYERPOSX * CELLSIZE + 105, PLAYERPOSY * CELLSIZE + 100);
     }
     // Getter for sprite
     Sprite& getSprite() { return this->sprite; }
@@ -123,7 +127,7 @@ void *PLAYERTHREAD(void *arg){
         for(int i = 0; i<gridRows; i++){
             for(int j = 0; j<gridCols; j++){
                 if (maze1[i][j] == 1) { // checking if maze can be placed here or not
-                    mazeBox.setPosition(j * CELLSize + 100, i * CELLSize + 100); // placing temporary mazeBox at current location
+                    mazeBox.setPosition(j * CELLSIZE + 100, i * CELLSIZE + 100); // placing temporary mazeBox at current location
                     if(player->moveUp && topRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving rightwards and it collides with walls 
                         player->moveUp = false;
                     }
@@ -139,7 +143,7 @@ void *PLAYERTHREAD(void *arg){
                 }
                 //detecting player's collision with food
                 else if(maze1[i][j] == 0){
-                    Food.setPosition((j * CELLSize + ((CELLSize / 2) - 5)) + 100, (i * CELLSize + ((CELLSize / 2) - 5)) + 100); //placing temporary Food at current position
+                    Food.setPosition((j * CELLSIZE + ((CELLSIZE / 2) - 5)) + 100, (i * CELLSIZE + ((CELLSIZE / 2) - 5)) + 100); //placing temporary Food at current position
                     FloatRect FoodBounds = Food.getGlobalBounds();
                     if(playerBounds.intersects(FoodBounds)){
                         maze1[i][j] = -99;
@@ -162,6 +166,33 @@ void *PLAYERTHREAD(void *arg){
     pthread_exit(NULL);    
 }
 
+void LEAVEHOME(bool &leftHome, GHOST *ghost) {
+    // Getting the global bounds of the ghost
+    FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
+
+    // Defining collision rectangles for each side of the ghost
+    FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
+    FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height); // getting right rect of ghost
+    FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
+    FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
+
+    for (int i = 0; i < gridRows; ++i) {
+        for (int j = 0; j < gridCols; ++j) {
+            if (maze1[i][j] == 1) { // if maze[i][j] is 1 then we can place a temporary mazeBox there
+                mazeBox.setPosition(j * CELLSIZE + 100, i * CELLSIZE + 100); // placing temporary mazeBox at current location
+                // if ghost is moving up wards and collision is detected above the ghost
+                if (ghost->moveUp && topRect.intersects(mazeBox.getGlobalBounds())) {
+                    if (!leftHome) {
+                        currentGhostToLeave++;
+                        leftHome = true;
+                    }
+                }
+            }
+        }
+    }
+    return;
+}
+
 void MOVESIMPLEGHOST(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
     // Getting the global bounds of the ghost
     FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
@@ -172,131 +203,227 @@ void MOVESIMPLEGHOST(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
     FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
     FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
 
-    // Iterating through all maze boxes
-    for (int i = 0; i < gridRows; ++i) {
-        for (int j = 0; j < gridCols; ++j) {
-            if (maze1[i][j] == 1) { // if maze[i][j] is 1 then we can place a temporary mazeBox there
-                mazeBox.setPosition(j * CELLSize + 100, i * CELLSize + 100); // placing temporary mazeBox at current location
-                // if ghost is moving up wards and collision is detected above the ghost
-                if (ghost->moveUp && topRect.intersects(mazeBox.getGlobalBounds())) {
-                    if (!leftHome) {
-                        currentGhostToLeave++;
-                        leftHome = true;
-                        cout << "Current ghost: " << currentGhostToLeave << endl;
-                    }
-                    collisionDetected = true; // since collision is detected, so we set it to true
-                    while (collisionDetected){
-                        int randomDirection = abs(rand() % 3); // we get random direction for our ghost
-                        // checking if that direction is available or not
-                        switch(randomDirection) {
-                            case 0: // for left movement
-                                if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
-                                    ghost->moveLeft = true;
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
-                            case 1: // for right movement
-                                if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
-                                    ghost->moveRight = true;
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
-                            case 2: // for down movement
-                                if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                                    ghost->moveDown = true; 
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
+    if (!leftHome)
+        LEAVEHOME(leftHome, ghost);
+    else
+        for (int i = 0; i < gridRows; ++i) { // Iterating through all maze boxes
+            for (int j = 0; j < gridCols; ++j) {
+                if (maze1[i][j] == 1) { // if maze[i][j] is 1 then we can place a temporary mazeBox there
+                    mazeBox.setPosition(j * CELLSIZE + 100, i * CELLSIZE + 100); // placing temporary mazeBox at current location
+                    // if ghost is moving up wards and collision is detected above the ghost
+                    if (ghost->moveUp && topRect.intersects(mazeBox.getGlobalBounds())) {
+                        collisionDetected = true; // since collision is detected, so we set it to true
+                        while (collisionDetected){
+                            int randomDirection = abs(rand() % 3); // we get random direction for our ghost
+                            // checking if that direction is available or not
+                            switch(randomDirection) {
+                                case 0: // for left movement
+                                    if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
+                                        ghost->moveLeft = true;
+                                        collisionDetected = false; // collision detected is set to false
+                                    }
+                                break;
+                                case 1: // for right movement
+                                    if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
+                                        ghost->moveRight = true;
+                                        collisionDetected = false; // collision detected is set to false
+                                    }
+                                break;
+                                case 2: // for down movement
+                                    if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
+                                        ghost->moveDown = true; 
+                                        collisionDetected = false; // collision detected is set to false
+                                    }
+                                break;
+                            }
                         }
+                        ghost->moveUp = false;
                     }
-                    ghost->moveUp = false;
+                    // if ghost is moving left wards and collision is detected on left side of the ghost
+                    if (ghost->moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())) {
+                        collisionDetected = true; // since collision is detected, so we set it to true
+                        while (collisionDetected){
+                            int randomDirection = abs(rand() % 3); // we get random direction for our ghost
+                            // checking if that direction is available or not
+                            switch(randomDirection) {
+                                case 0: // for left movement
+                                    if (!topRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle above, we allow upward movement
+                                        ghost->moveUp = true;
+                                        collisionDetected = false; // collision detected is set to false
+                                    }
+                                break;
+                                case 1: // for right movement
+                                    if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
+                                        ghost->moveRight = true;
+                                        collisionDetected = false; // collision detected is set to false
+                                    }
+                                break;
+                                case 2: // for down movement
+                                    if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
+                                        ghost->moveDown = true; 
+                                        collisionDetected = false; // collision detected is set to false
+                                    }
+                                break;
+                            }
+                        }
+                        ghost->moveLeft = false;
+                    }
+                    // if ghost is moving right wards and collision is detected on right side of the ghost
+                    if (ghost->moveRight && rightRect.intersects(mazeBox.getGlobalBounds())) {
+                        collisionDetected = true; // since collision is detected, so we set it to true
+                        while (collisionDetected){
+                            int randomDirection = abs(rand() % 3); // we get random direction for our ghost
+                            // checking if that direction is available or not
+                            switch(randomDirection) {
+                                case 0: // for left movement
+                                    if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
+                                        ghost->moveLeft = true;
+                                        collisionDetected = false; // collision detected is set to false
+                                    }
+                                break;
+                                case 1: // for right movement
+                                    if (!topRect.intersects(mazeBox.getGlobalBounds())) {
+                                        ghost->moveUp = true;
+                                        collisionDetected = false; // collision detected is set to false
+                                    }
+                                break;
+                                case 2: // for down movement
+                                    if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
+                                        ghost->moveDown = true; 
+                                        collisionDetected = false; // collision detected is set to false
+                                    }
+                                break;
+                            }
+                        }
+                        ghost->moveRight = false;
+                    }
+                    // if ghost is moving down wards and collision is detected below the ghost
+                    if (ghost->moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())) {
+                        collisionDetected = true; // since collision is detected, so we set it to true
+                        while (collisionDetected){
+                            int randomDirection = abs(rand() % 3); // we get random direction for our ghost
+                            // checking if that direction is available or not
+                            switch(randomDirection) {
+                                case 0: // for left movement
+                                    if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
+                                        ghost->moveLeft = true;
+                                        collisionDetected = false; // collision detected is set to false
+                                    }
+                                break;
+                                case 1: // for right movement
+                                    if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
+                                        ghost->moveRight = true;
+                                        collisionDetected = false; // collision detected is set to false
+                                    }
+                                break;
+                                case 2: // for down movement
+                                    if (!topRect.intersects(mazeBox.getGlobalBounds())) {
+                                        ghost->moveUp = true; 
+                                        collisionDetected = false; // collision detected is set to false
+                                    }
+                                break;
+                            }
+                        }
+                        ghost->moveDown = false;
+                    }
                 }
-                // if ghost is moving left wards and collision is detected on left side of the ghost
-                if (ghost->moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())) {
-                    collisionDetected = true; // since collision is detected, so we set it to true
-                    while (collisionDetected){
-                        int randomDirection = abs(rand() % 3); // we get random direction for our ghost
-                        // checking if that direction is available or not
-                        switch(randomDirection) {
-                            case 0: // for left movement
-                                if (!topRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle above, we allow upward movement
-                                    ghost->moveUp = true;
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
-                            case 1: // for right movement
-                                if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
-                                    ghost->moveRight = true;
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
-                            case 2: // for down movement
-                                if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                                    ghost->moveDown = true; 
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
-                        }
-                    }
-                    ghost->moveLeft = false;
+            }
+        }
+    // Moving the ghost according to the position available
+    if (ghost->moveUp)
+        ghost->getSprite().move(0.0f, -1.0f - ghost->getSpeed());
+    else if (ghost->moveLeft)
+        ghost->getSprite().move(-1.0f - ghost->getSpeed(), 0.0f);
+    else if (ghost->moveRight)
+        ghost->getSprite().move(1.0f + ghost->getSpeed(), 0.0f);
+    else if (ghost->moveDown)
+        ghost->getSprite().move(0.0f, 1.0f + ghost->getSpeed());
+    return;
+}
+
+struct Cell {
+    int x, y; // Coordinates of the cell
+    int distance; // Distance from the starting cell
+    Cell(int x, int y, int distance) : x(x), y(y), distance(distance) {}
+};
+
+void MOVESEMIINTELLIGENTGHOST(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
+    bool pathFound = false;
+    // Getting the global bounds of the ghost
+    FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
+
+    // Defining collision rectangles for each side of the ghost
+    FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height);
+    FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height);
+    FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1);
+    FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1);
+
+    // cout << "Ghost hits at X: " << ghost->getSprite().getPosition().x - 100 << " and Y: " << ghost->getSprite().getPosition().y - 100 << endl;
+
+
+    if (!leftHome)
+        LEAVEHOME(leftHome, ghost);
+    else {
+        // Check if the ghost has reached its target
+        if ((ghost->getSprite().getPosition().x - 100) / CELLSIZE == ghost->getTarget().first && (ghost->getSprite().getPosition().y - 100) / CELLSIZE == ghost->getTarget().second) {
+            // Update the ghost's target to a new random position
+            int newX = rand() % gridCols;
+            int newY = rand() % gridRows;
+            ghost->setTarget(make_pair(newX, newY)); // setting new target for ghost
+        }
+
+        // Create a visited array to keep track of visited cells
+        bool visited[gridRows][gridCols] = {false};
+
+        // Create a queue for BFS
+        queue<Cell> q;
+
+        // Starting cell
+        int startX = ghostBounds.left / CELLSIZE;
+        int startY = ghostBounds.top / CELLSIZE;
+        q.push(Cell(startX, startY, 0)); // Add the starting cell to the queue
+        visited[startY][startX] = true; // Mark the starting cell as visited
+
+        // Arrays to represent the possible movements (up, down, left, right)
+        int dx[] = {0, 0, -1, 1};
+        int dy[] = {-1, 1, 0, 0};
+
+        // Perform BFS
+        while (!q.empty()) {
+            Cell current = q.front(); // Get the front cell from the queue
+            q.pop(); // Remove the front cell from the queue
+
+            // Check if the current cell is the target cell
+            if (current.x * CELLSIZE + 100 == ghost->getTarget().first && current.y * CELLSIZE + 100 == ghost->getTarget().second) {
+                // Move the ghost towards the target
+                if (current.x < startX) {
+                    ghost->moveLeft = true;
+                    ghost->moveRight = ghost->moveUp = ghost->moveDown = false;
+                } 
+                else if (current.x > startX) {
+                    ghost->moveRight = true;
+                    ghost->moveLeft = ghost->moveUp = ghost->moveDown = false;
+                } 
+                else if (current.y < startY) {
+                    ghost->moveUp = true;
+                    ghost->moveLeft = ghost->moveRight = ghost->moveDown = false;
+                } 
+                else if (current.y > startY) {
+                    ghost->moveDown = true;
+                    ghost->moveLeft = ghost->moveRight = ghost->moveUp = false;
                 }
-                // if ghost is moving right wards and collision is detected on right side of the ghost
-                if (ghost->moveRight && rightRect.intersects(mazeBox.getGlobalBounds())) {
-                    collisionDetected = true; // since collision is detected, so we set it to true
-                    while (collisionDetected){
-                        int randomDirection = abs(rand() % 3); // we get random direction for our ghost
-                        // checking if that direction is available or not
-                        switch(randomDirection) {
-                            case 0: // for left movement
-                                if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
-                                    ghost->moveLeft = true;
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
-                            case 1: // for right movement
-                                if (!topRect.intersects(mazeBox.getGlobalBounds())) {
-                                    ghost->moveUp = true;
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
-                            case 2: // for down movement
-                                if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                                    ghost->moveDown = true; 
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
-                        }
-                    }
-                    ghost->moveRight = false;
-                }
-                // if ghost is moving down wards and collision is detected below the ghost
-                if (ghost->moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                    collisionDetected = true; // since collision is detected, so we set it to true
-                    while (collisionDetected){
-                        int randomDirection = abs(rand() % 3); // we get random direction for our ghost
-                        // checking if that direction is available or not
-                        switch(randomDirection) {
-                            case 0: // for left movement
-                                if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
-                                    ghost->moveLeft = true;
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
-                            case 1: // for right movement
-                                if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
-                                    ghost->moveRight = true;
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
-                            case 2: // for down movement
-                                if (!topRect.intersects(mazeBox.getGlobalBounds())) {
-                                    ghost->moveUp = true; 
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
-                        }
-                    }
-                    ghost->moveDown = false;
+                return;
+            }
+
+            // Explore adjacent cells
+            for (int i = 0; i < 4; ++i) {
+                int nextX = current.x + dx[i];
+                int nextY = current.y + dy[i];
+
+                // Check if the next cell is within the maze bounds and not visited yet
+                if (nextX > 0 && nextX < gridCols && nextY > 0 && nextY < gridRows && !visited[nextY][nextX] && maze1[nextY][nextX] == 0) {
+                    q.push(Cell(nextX, nextY, current.distance + 1)); // Add the next cell to the queue
+                    visited[nextY][nextX] = true; // Mark the next cell as visited
                 }
             }
         }
@@ -311,10 +438,6 @@ void MOVESIMPLEGHOST(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
     else if (ghost->moveDown)
         ghost->getSprite().move(0.0f, 1.0f + ghost->getSpeed());
     return;
-}
-
-void MOVESEMIINTELLIGENTGHOST(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
-    
 }
 
 void MOVEFULLYINTELLIGENTGHOST(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
@@ -349,11 +472,11 @@ void DRAWMAZE(RenderWindow &window, CircleShape food, Sprite mazeBox) { // this 
     for (int i = 0; i < gridRows; i++) {
         for (int j = 0; j < gridCols; j++) {
             if (maze1[i][j] == 1) {
-                mazeBox.setPosition((j * CELLSize) + 100, (i * CELLSize) + 100); // setting position of mazeBox
+                mazeBox.setPosition((j * CELLSIZE) + 100, (i * CELLSIZE) + 100); // setting position of mazeBox
                 window.draw(mazeBox); // drawing the mazeBox on window so that it can be rendered
             }
             else if (maze1[i][j] == 0) {
-                food.setPosition((j * CELLSize + ((CELLSize / 2) - 5)) + 100, (i * CELLSize + ((CELLSize / 2) - 5)) + 100); // setting position of food such that it appears in the center of its block
+                food.setPosition((j * CELLSIZE + ((CELLSIZE / 2) - 5)) + 100, (i * CELLSIZE + ((CELLSIZE / 2) - 5)) + 100); // setting position of food such that it appears in the center of its block
                 window.draw(food); // drawing the food on window so that it can be rendered
             }
         }
@@ -366,27 +489,27 @@ void *GAMEINIT(void *arg) { // main game thread
 
     box.loadFromFile("sprites/box.png"); // loading the texture with maze.png
     mazeBox.setTexture(box); // setting the Game Grid Sprite to maze texture
-    mazeBox.scale(CELLSize, CELLSize); // scaling the sprite accoring to the cell size to fit in the screen
+    mazeBox.scale(CELLSIZE, CELLSIZE); // scaling the sprite accoring to the cell size to fit in the screen
 
     Texture redGhostTex;
     redGhostTex.loadFromFile("sprites/redGhost.png"); // loading a red ghost png
-    GHOST redGhostObj(redGhostTex, 0, 0, SPEEDBOOST); // creating a ghost obj
+    GHOST redGhostObj(redGhostTex, 0, 1); // creating a ghost obj with (texture, startingNumber, mode)
 
     Texture greenGhostTex;
     greenGhostTex.loadFromFile("sprites/greenGhost.png"); // loading a red ghost png
-    GHOST greenGhostObj(greenGhostTex, 1, 0); // creating a ghost obj
+    GHOST greenGhostObj(greenGhostTex, 1, 0); // creating a ghost obj with (texture, startingNumber, mode)
 
     Texture yellowGhostTex;
     yellowGhostTex.loadFromFile("sprites/yellowGhost.png"); // loading a red ghost png
-    GHOST yellowGhostObj(yellowGhostTex, 2, 0); // creating a ghost obj
+    GHOST yellowGhostObj(yellowGhostTex, 2, 0); // creating a ghost obj with (texture, startingNumber, mode)
 
     Texture pinkGhostTex;
     pinkGhostTex.loadFromFile("sprites/pinkGhost.png"); // loading a red ghost png
-    GHOST pinkGhostObj(pinkGhostTex, 3, 0); // creating a ghost obj
+    GHOST pinkGhostObj(pinkGhostTex, 3, 0); // creating a ghost obj with (texture, startingNumber, mode)
 
     Texture blueGhostTex;
     blueGhostTex.loadFromFile("sprites/blueGhost.png"); // loading a red ghost png
-    GHOST blueGhostObj(blueGhostTex, 4, 0); // creating a ghost obj
+    GHOST blueGhostObj(blueGhostTex, 4, 0); // creating a ghost obj with (texture, startingNumber, mode)
 
     Texture playerTexLeft;
     playerTexLeft.loadFromFile("sprites/mouthOpenLeft.png"); // loading left side player png
@@ -421,30 +544,22 @@ void *GAMEINIT(void *arg) { // main game thread
         if(Keyboard::isKeyPressed(Keyboard::A)){
             playerObj.changeTexture(playerTexLeft);
             playerObj.moveLeft = true;
-            playerObj.moveRight = false;
-            playerObj.moveUp = false;
-            playerObj.moveDown = false;
+            playerObj.moveRight = playerObj.moveUp = playerObj.moveUp = playerObj.moveDown = false;
         }
         if(Keyboard::isKeyPressed(Keyboard::W)){
             playerObj.changeTexture(playerTexUp);
-            playerObj.moveLeft = false;
-            playerObj.moveRight = false;
             playerObj.moveUp = true;
-            playerObj.moveDown = false;
+            playerObj.moveLeft = playerObj.moveRight = playerObj.moveDown = false;
         }
         if(Keyboard::isKeyPressed(Keyboard::S)){
             playerObj.changeTexture(playerTexDown);
-            playerObj.moveLeft = false;
-            playerObj.moveRight = false;
-            playerObj.moveUp = false;
             playerObj.moveDown = true;
+            playerObj.moveLeft = playerObj.moveRight = playerObj.moveUp = false;
         }
         if(Keyboard::isKeyPressed(Keyboard::D)){
             playerObj.changeTexture(playerTexRight);
-            playerObj.moveLeft = false;
             playerObj.moveRight = true;
-            playerObj.moveUp = false;
-            playerObj.moveDown = false;
+            playerObj.moveLeft = playerObj.moveUp = playerObj.moveDown = false;
         }
         gameWindow.clear(); // clearing the buffer window
         DRAWMAZE(gameWindow, Food, mazeBox); // Drawing the maze with food and mazeBoxes
