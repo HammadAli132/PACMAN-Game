@@ -40,6 +40,7 @@ CircleShape Food(5.0f); // this is our circular food
 pthread_mutex_t objectMovementSynchronisor;
 int currentGhostToLeave = 0;
 #define SPEEDBOOST 0.2f
+bool playerAte = false;
 
 class GHOST {
 private:
@@ -155,6 +156,7 @@ void *PLAYERTHREAD(void *arg){
                         maze1[i][j] = -99;
                         int score = player->getScore();
                         player->setScore(score += 1); //increasing score as the player eats food
+                        playerAte = true;
                     }
                     
                 }
@@ -396,7 +398,6 @@ void MOVESEMIINTELLIGENTGHOST(bool &collisionDetected, bool &leftHome, GHOST *gh
 
     // cout << "Ghost hits at X: " << ghost->getSprite().getPosition().x - 100 << " and Y: " << ghost->getSprite().getPosition().y - 100 << endl;
 
-
     if (!leftHome)
         LEAVEHOME(collisionDetected, leftHome, ghost);
     else {
@@ -597,20 +598,15 @@ void *GAMEINIT(void *arg) { // main game thread
     pthread_create(&playerThread, &detachProp, PLAYERTHREAD, (void **) &playerObj); // creating a detachable player thread
     pthread_attr_destroy(&detachProp);
 
-    float switchTime = 0.02f;
-    Clock clock;
-    bool mouthChange = false;
+    bool mouthOpened = true;
     while (gameWindow.isOpen()) {
         Event event;
-        Time elapsed;
     
         while (gameWindow.pollEvent(event)) { // checking for window close command
             if (event.type == Event::Closed)
                 gameWindow.close();
         }
 
-        float deltaTime = elapsed.asSeconds();
-        //cout<<deltaTime<<endl;
         // taking user input
         if(Keyboard::isKeyPressed(Keyboard::A)){
             playerObj.changeTexture(playerTexLeft);
@@ -632,8 +628,8 @@ void *GAMEINIT(void *arg) { // main game thread
             playerObj.moveRight = true;
             playerObj.moveLeft = playerObj.moveUp = playerObj.moveDown = false;
         }
-        
-        if(deltaTime >= switchTime && !mouthChange){
+
+        if(playerAte && mouthOpened){
             if(playerObj.moveUp){
                 playerObj.changeTexture(playerTexUpClose);   
             }
@@ -646,9 +642,10 @@ void *GAMEINIT(void *arg) { // main game thread
             else if(playerObj.moveRight){
                 playerObj.changeTexture(playerTexRightClose);    
             }
-            mouthChange = true;
+            mouthOpened = false;
+            playerAte = false;
         }
-        else if(deltaTime >= switchTime && mouthChange){
+        else if(playerAte && !mouthOpened){
             if(playerObj.moveUp){
                 playerObj.changeTexture(playerTexUp);
             }
@@ -661,7 +658,8 @@ void *GAMEINIT(void *arg) { // main game thread
             else if(playerObj.moveRight){
                 playerObj.changeTexture(playerTexRight);
             }
-            mouthChange = false;
+            mouthOpened = true;
+            playerAte = false;
         }
         
         gameWindow.clear(); // clearing the buffer window
