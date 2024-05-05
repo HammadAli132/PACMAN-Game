@@ -36,6 +36,7 @@ vector<vector<int>> maze1 = {
 bool threadExit = false; // this is a boolean to close all detached threads when the game closes
 Sprite mazeBox; // creating a sprite for Game Grid
 Texture box; // creating a texture for maze.png
+CircleShape Food(5.0f); // this is our circular food
 pthread_mutex_t objectMovementSynchronisor;
 int currentGhostToLeave = 0;
 #define SPEEDBOOST 0.2f
@@ -134,6 +135,16 @@ void *PLAYERTHREAD(void *arg){
                     }
                     else if(player->moveRight && rightRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving upwards and it collides with walls
                         player->moveRight = false;
+                    }
+                }
+                //detecting player's collision with food
+                else if(maze1[i][j] == 0){
+                    Food.setPosition((j * CELLSize + ((CELLSize / 2) - 5)) + 100, (i * CELLSize + ((CELLSize / 2) - 5)) + 100); //placing temporary Food at current position
+                    FloatRect FoodBounds = Food.getGlobalBounds();
+                    FloatRect playerBounds = player->getSprite().getGlobalBounds();
+
+                    if(playerBounds.intersects(FoodBounds)){
+                        maze1[i][j] = -99;
                     }
                 }
             }            
@@ -354,7 +365,6 @@ void DRAWMAZE(RenderWindow &window, CircleShape food, Sprite mazeBox) { // this 
 
 void *GAMEINIT(void *arg) { // main game thread
     RenderWindow gameWindow(VideoMode(GRIDWIDTH + 200, GRIDHEIGHT + 200), "PACMAN Game", Style::Default);
-    CircleShape Food(5.0f); // this is our circular food
 
     box.loadFromFile("sprites/box.png"); // loading the texture with maze.png
     mazeBox.setTexture(box); // setting the Game Grid Sprite to maze texture
