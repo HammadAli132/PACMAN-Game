@@ -141,8 +141,6 @@ void *PLAYERTHREAD(void *arg){
                 else if(maze1[i][j] == 0){
                     Food.setPosition((j * CELLSize + ((CELLSize / 2) - 5)) + 100, (i * CELLSize + ((CELLSize / 2) - 5)) + 100); //placing temporary Food at current position
                     FloatRect FoodBounds = Food.getGlobalBounds();
-                    FloatRect playerBounds = player->getSprite().getGlobalBounds();
-
                     if(playerBounds.intersects(FoodBounds)){
                         maze1[i][j] = -99;
                     }
