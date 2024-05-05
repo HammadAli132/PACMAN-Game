@@ -546,6 +546,16 @@ void *GAMEINIT(void *arg) { // main game thread
     playerTexUp.loadFromFile("sprites/mouthOpenUp.png"); // loading upwards player png
     Texture playerTexDown;
     playerTexDown.loadFromFile("sprites/mouthOpenDown.png"); // loading downwards player png
+
+    Texture playerTexLeftClose;
+    playerTexLeftClose.loadFromFile("sprites/leftMouthClose.png"); // loading left side player png
+    Texture playerTexRightClose;
+    playerTexRightClose.loadFromFile("sprites/rightMouthClose.png"); // loading default player png
+    Texture playerTexUpClose;
+    playerTexUpClose.loadFromFile("sprites/upMouthClose.png"); // loading upwards player png
+    Texture playerTexDownClose;
+    playerTexDownClose.loadFromFile("sprites/downMouthClose.png"); // loading downwards player png
+
     PLAYER playerObj(playerTexRight); // creating player obj
 
     pthread_attr_t detachProp; // setting detachable property
@@ -561,30 +571,57 @@ void *GAMEINIT(void *arg) { // main game thread
     pthread_create(&playerThread, &detachProp, PLAYERTHREAD, (void **) &playerObj); // creating a detachable player thread
     pthread_attr_destroy(&detachProp);
 
+        
+    float switchTime = 0.01f;
+    Clock clock;
     while (gameWindow.isOpen()) {
         Event event;
+        Time elapsed;
         while (gameWindow.pollEvent(event)) { // checking for window close command
             if (event.type == Event::Closed)
                 gameWindow.close();
         }
+
+        elapsed = clock.restart();
+        float deltaTime = elapsed.asSeconds();
         // taking user input
         if(Keyboard::isKeyPressed(Keyboard::A)){
-            playerObj.changeTexture(playerTexLeft);
+            if(deltaTime >= switchTime){
+                playerObj.changeTexture(playerTexLeftClose);    
+                clock.restart();
+            }
+            else
+                playerObj.changeTexture(playerTexLeft);
             playerObj.moveLeft = true;
             playerObj.moveRight = playerObj.moveUp = playerObj.moveUp = playerObj.moveDown = false;
         }
         if(Keyboard::isKeyPressed(Keyboard::W)){
-            playerObj.changeTexture(playerTexUp);
+            if(deltaTime >= switchTime){
+                playerObj.changeTexture(playerTexUpClose);    
+                clock.restart();
+            }
+            else
+                playerObj.changeTexture(playerTexUp);
             playerObj.moveUp = true;
             playerObj.moveLeft = playerObj.moveRight = playerObj.moveDown = false;
         }
         if(Keyboard::isKeyPressed(Keyboard::S)){
-            playerObj.changeTexture(playerTexDown);
+            if(deltaTime >= switchTime){
+                playerObj.changeTexture(playerTexDownClose);    
+                clock.restart();
+            }
+            else
+                playerObj.changeTexture(playerTexDown);
             playerObj.moveDown = true;
             playerObj.moveLeft = playerObj.moveRight = playerObj.moveUp = false;
         }
         if(Keyboard::isKeyPressed(Keyboard::D)){
-            playerObj.changeTexture(playerTexRight);
+            if(deltaTime >= switchTime){
+                playerObj.changeTexture(playerTexRightClose);    
+                clock.restart();
+            }
+            else
+                playerObj.changeTexture(playerTexRight);
             playerObj.moveRight = true;
             playerObj.moveLeft = playerObj.moveUp = playerObj.moveDown = false;
         }
