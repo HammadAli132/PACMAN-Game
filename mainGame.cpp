@@ -166,7 +166,7 @@ void *PLAYERTHREAD(void *arg){
     pthread_exit(NULL);    
 }
 
-void LEAVEHOME(bool &leftHome, GHOST *ghost) {
+void LEAVEHOME(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
     // Getting the global bounds of the ghost
     FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
 
@@ -182,10 +182,36 @@ void LEAVEHOME(bool &leftHome, GHOST *ghost) {
                 mazeBox.setPosition(j * CELLSIZE + 100, i * CELLSIZE + 100); // placing temporary mazeBox at current location
                 // if ghost is moving up wards and collision is detected above the ghost
                 if (ghost->moveUp && topRect.intersects(mazeBox.getGlobalBounds())) {
+                    collisionDetected = true;
                     if (!leftHome) {
                         currentGhostToLeave++;
                         leftHome = true;
                     }
+                    while (collisionDetected){
+                        int randomDirection = abs(rand() % 3); // we get random direction for our ghost
+                        // checking if that direction is available or not
+                        switch(randomDirection) {
+                            case 0: // for left movement
+                                if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
+                                    ghost->moveLeft = true;
+                                    collisionDetected = false; // collision detected is set to false
+                                }
+                            break;
+                            case 1: // for right movement
+                                if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
+                                    ghost->moveRight = true;
+                                    collisionDetected = false; // collision detected is set to false
+                                }
+                            break;
+                            case 2: // for down movement
+                                if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
+                                    ghost->moveDown = true; 
+                                    collisionDetected = false; // collision detected is set to false
+                                }
+                            break;
+                        }
+                    }
+                    ghost->moveUp = false;
                 }
             }
         }
@@ -194,18 +220,18 @@ void LEAVEHOME(bool &leftHome, GHOST *ghost) {
 }
 
 void MOVESIMPLEGHOST(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
-    // Getting the global bounds of the ghost
-    FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
-
-    // Defining collision rectangles for each side of the ghost
-    FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
-    FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height); // getting right rect of ghost
-    FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
-    FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
-
     if (!leftHome)
-        LEAVEHOME(leftHome, ghost);
-    else
+        LEAVEHOME(collisionDetected, leftHome, ghost);
+    else {
+        // Getting the global bounds of the ghost
+        FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
+
+        // Defining collision rectangles for each side of the ghost
+        FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
+        FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height); // getting right rect of ghost
+        FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
+        FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
+
         for (int i = 0; i < gridRows; ++i) { // Iterating through all maze boxes
             for (int j = 0; j < gridCols; ++j) {
                 if (maze1[i][j] == 1) { // if maze[i][j] is 1 then we can place a temporary mazeBox there
@@ -329,6 +355,7 @@ void MOVESIMPLEGHOST(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
                 }
             }
         }
+    }
     // Moving the ghost according to the position available
     if (ghost->moveUp)
         ghost->getSprite().move(0.0f, -1.0f - ghost->getSpeed());
@@ -362,7 +389,7 @@ void MOVESEMIINTELLIGENTGHOST(bool &collisionDetected, bool &leftHome, GHOST *gh
 
 
     if (!leftHome)
-        LEAVEHOME(leftHome, ghost);
+        LEAVEHOME(collisionDetected, leftHome, ghost);
     else {
         // Check if the ghost has reached its target
         if ((ghost->getSprite().getPosition().x - 100) / CELLSIZE == ghost->getTarget().first && (ghost->getSprite().getPosition().y - 100) / CELLSIZE == ghost->getTarget().second) {
@@ -493,7 +520,7 @@ void *GAMEINIT(void *arg) { // main game thread
 
     Texture redGhostTex;
     redGhostTex.loadFromFile("sprites/redGhost.png"); // loading a red ghost png
-    GHOST redGhostObj(redGhostTex, 0, 1); // creating a ghost obj with (texture, startingNumber, mode)
+    GHOST redGhostObj(redGhostTex, 0, 0); // creating a ghost obj with (texture, startingNumber, mode)
 
     Texture greenGhostTex;
     greenGhostTex.loadFromFile("sprites/greenGhost.png"); // loading a red ghost png
