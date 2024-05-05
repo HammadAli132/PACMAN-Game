@@ -40,6 +40,7 @@ CircleShape Food(5.0f); // this is our circular food
 pthread_mutex_t objectMovementSynchronisor;
 int currentGhostToLeave = 0;
 #define SPEEDBOOST 0.2f
+bool playerAte = false;
 
 class GHOST {
 private:
@@ -88,6 +89,7 @@ public:
 class PLAYER{
 private:
     Sprite sprite;
+    int score;
     
 public:
     bool moveLeft = false; // boolean for left movement
@@ -98,6 +100,7 @@ public:
         this->sprite.setTexture(texture);
         this->sprite.setScale(0.8f, 0.8f);
         this->sprite.setPosition(PLAYERPOSX * CELLSIZE + 105, PLAYERPOSY * CELLSIZE + 100);
+        this->score = 0;
     }
     // Getter for sprite
     Sprite& getSprite() { return this->sprite; }
@@ -108,6 +111,10 @@ public:
         this->sprite.setTexture(tex);
         this->sprite.setScale(0.8f, 0.8f);
     }
+    //getter for score
+    int getScore() { return this->score; }
+    //setter for score;
+    void setScore(int Score) { this->score = Score; }
 };
 
 void *PLAYERTHREAD(void *arg){
@@ -148,7 +155,11 @@ void *PLAYERTHREAD(void *arg){
                     FloatRect FoodBounds = Food.getGlobalBounds();
                     if(playerBounds.intersects(FoodBounds)){
                         maze1[i][j] = -99;
+                        int score = player->getScore();
+                        player->setScore(score += 1); //increasing score as the player eats food
+                        playerAte = true;
                     }
+                    
                 }
             }            
         }
@@ -391,7 +402,6 @@ void MOVESEMIINTELLIGENTGHOST(bool &collisionDetected, bool &leftHome, GHOST *gh
         FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1);
 
         // cout << "Ghost hits at X: " << ghost->getSprite().getPosition().x - 100 << " and Y: " << ghost->getSprite().getPosition().y - 100 << endl;
-
         // Check if the ghost has reached its target
         if ((int)((ghost->getSprite().getPosition().x - 100) / CELLSIZE) == ghost->getTarget().first && (int)((ghost->getSprite().getPosition().y - 100) / CELLSIZE) == ghost->getTarget().second) {
             // Update the ghost's target to a new random position
@@ -537,7 +547,34 @@ void *GAMEINIT(void *arg) { // main game thread
     playerTexUp.loadFromFile("sprites/mouthOpenUp.png"); // loading upwards player png
     Texture playerTexDown;
     playerTexDown.loadFromFile("sprites/mouthOpenDown.png"); // loading downwards player png
+
+    Texture playerTexLeftClose;
+    playerTexLeftClose.loadFromFile("sprites/leftMouthClose.png"); // loading left side player png
+    Texture playerTexRightClose;
+    playerTexRightClose.loadFromFile("sprites/rightMouthClose.png"); // loading default player png
+    Texture playerTexUpClose;
+    playerTexUpClose.loadFromFile("sprites/upMouthClose.png"); // loading upwards player png
+    Texture playerTexDownClose;
+    playerTexDownClose.loadFromFile("sprites/downMouthClose.png"); // loading downwards player png
+
     PLAYER playerObj(playerTexRight); // creating player obj
+
+    //to display the string "Score" on the upper left corner
+    Text displayScoreString;
+    Font font;
+    font.loadFromFile("sprites/The Hoca.ttf");
+    displayScoreString.setFont(font);
+    displayScoreString.setCharacterSize(24);
+    displayScoreString.setString("Score: ");
+    displayScoreString.setFillColor(Color::Red);
+    displayScoreString.setPosition(7, 13);
+
+    //to display the value of score on screen
+    Text displayScore;
+    displayScore.setFont(font);
+    displayScore.setCharacterSize(24);
+    displayScore.setFillColor(Color::Green);
+    displayScore.setPosition(95, 13);
 
     pthread_attr_t detachProp; // setting detachable property
     pthread_attr_init(&detachProp); // initializing that property
@@ -552,33 +589,70 @@ void *GAMEINIT(void *arg) { // main game thread
     pthread_create(&playerThread, &detachProp, PLAYERTHREAD, (void **) &playerObj); // creating a detachable player thread
     pthread_attr_destroy(&detachProp);
 
+    bool mouthOpened = true;
     while (gameWindow.isOpen()) {
         Event event;
+    
         while (gameWindow.pollEvent(event)) { // checking for window close command
             if (event.type == Event::Closed)
                 gameWindow.close();
         }
+
         // taking user input
         if(Keyboard::isKeyPressed(Keyboard::A)){
             playerObj.changeTexture(playerTexLeft);
             playerObj.moveLeft = true;
             playerObj.moveRight = playerObj.moveUp = playerObj.moveUp = playerObj.moveDown = false;
         }
-        if(Keyboard::isKeyPressed(Keyboard::W)){
+        else if(Keyboard::isKeyPressed(Keyboard::W)){
             playerObj.changeTexture(playerTexUp);
             playerObj.moveUp = true;
             playerObj.moveLeft = playerObj.moveRight = playerObj.moveDown = false;
         }
-        if(Keyboard::isKeyPressed(Keyboard::S)){
+        else if(Keyboard::isKeyPressed(Keyboard::S)){
             playerObj.changeTexture(playerTexDown);
             playerObj.moveDown = true;
             playerObj.moveLeft = playerObj.moveRight = playerObj.moveUp = false;
         }
-        if(Keyboard::isKeyPressed(Keyboard::D)){
+        else if(Keyboard::isKeyPressed(Keyboard::D)){
             playerObj.changeTexture(playerTexRight);
             playerObj.moveRight = true;
             playerObj.moveLeft = playerObj.moveUp = playerObj.moveDown = false;
         }
+
+        if(playerAte && mouthOpened){
+            if(playerObj.moveUp){
+                playerObj.changeTexture(playerTexUpClose);   
+            }
+            else if(playerObj.moveDown){
+                playerObj.changeTexture(playerTexDownClose);   
+            }
+            else if(playerObj.moveLeft){
+                playerObj.changeTexture(playerTexLeftClose);    
+            }
+            else if(playerObj.moveRight){
+                playerObj.changeTexture(playerTexRightClose);    
+            }
+            mouthOpened = false;
+            playerAte = false;
+        }
+        else if(playerAte && !mouthOpened){
+            if(playerObj.moveUp){
+                playerObj.changeTexture(playerTexUp);
+            }
+            else if(playerObj.moveDown){
+                playerObj.changeTexture(playerTexDown);
+            }
+            else if(playerObj.moveLeft){
+                playerObj.changeTexture(playerTexLeft);
+            }
+            else if(playerObj.moveRight){
+                playerObj.changeTexture(playerTexRight);
+            }
+            mouthOpened = true;
+            playerAte = false;
+        }
+        
         gameWindow.clear(); // clearing the buffer window
         DRAWMAZE(gameWindow, Food, mazeBox); // Drawing the maze with food and mazeBoxes
         gameWindow.draw(redGhostObj.getSprite());
@@ -586,6 +660,9 @@ void *GAMEINIT(void *arg) { // main game thread
         // gameWindow.draw(pinkGhostObj.getSprite());
         // gameWindow.draw(yellowGhostObj.getSprite());
         gameWindow.draw(playerObj.getSprite());
+        gameWindow.draw(displayScoreString);
+        displayScore.setString(to_string(playerObj.getScore())); //converting score to string so that it can be displayed
+        gameWindow.draw(displayScore);        
         gameWindow.display(); // swapping the buffer window with main window
     }
 
