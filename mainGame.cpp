@@ -571,60 +571,73 @@ void *GAMEINIT(void *arg) { // main game thread
     pthread_create(&playerThread, &detachProp, PLAYERTHREAD, (void **) &playerObj); // creating a detachable player thread
     pthread_attr_destroy(&detachProp);
 
-        
-    float switchTime = 0.01f;
+    float switchTime = 0.02f;
     Clock clock;
+    bool mouthChange = false;
     while (gameWindow.isOpen()) {
         Event event;
         Time elapsed;
+    
         while (gameWindow.pollEvent(event)) { // checking for window close command
             if (event.type == Event::Closed)
                 gameWindow.close();
         }
 
-        elapsed = clock.restart();
         float deltaTime = elapsed.asSeconds();
+        //cout<<deltaTime<<endl;
         // taking user input
         if(Keyboard::isKeyPressed(Keyboard::A)){
-            if(deltaTime >= switchTime){
-                playerObj.changeTexture(playerTexLeftClose);    
-                clock.restart();
-            }
-            else
-                playerObj.changeTexture(playerTexLeft);
+            playerObj.changeTexture(playerTexLeft);
             playerObj.moveLeft = true;
             playerObj.moveRight = playerObj.moveUp = playerObj.moveUp = playerObj.moveDown = false;
         }
-        if(Keyboard::isKeyPressed(Keyboard::W)){
-            if(deltaTime >= switchTime){
-                playerObj.changeTexture(playerTexUpClose);    
-                clock.restart();
-            }
-            else
-                playerObj.changeTexture(playerTexUp);
+        else if(Keyboard::isKeyPressed(Keyboard::W)){
+            playerObj.changeTexture(playerTexUp);
             playerObj.moveUp = true;
             playerObj.moveLeft = playerObj.moveRight = playerObj.moveDown = false;
         }
-        if(Keyboard::isKeyPressed(Keyboard::S)){
-            if(deltaTime >= switchTime){
-                playerObj.changeTexture(playerTexDownClose);    
-                clock.restart();
-            }
-            else
-                playerObj.changeTexture(playerTexDown);
+        else if(Keyboard::isKeyPressed(Keyboard::S)){
+            playerObj.changeTexture(playerTexDown);
             playerObj.moveDown = true;
             playerObj.moveLeft = playerObj.moveRight = playerObj.moveUp = false;
         }
-        if(Keyboard::isKeyPressed(Keyboard::D)){
-            if(deltaTime >= switchTime){
-                playerObj.changeTexture(playerTexRightClose);    
-                clock.restart();
-            }
-            else
-                playerObj.changeTexture(playerTexRight);
+        else if(Keyboard::isKeyPressed(Keyboard::D)){
+            playerObj.changeTexture(playerTexRight);
             playerObj.moveRight = true;
             playerObj.moveLeft = playerObj.moveUp = playerObj.moveDown = false;
         }
+        
+        if(deltaTime >= switchTime && !mouthChange){
+            if(playerObj.moveUp){
+                playerObj.changeTexture(playerTexUpClose);   
+            }
+            else if(playerObj.moveDown){
+                playerObj.changeTexture(playerTexDownClose);   
+            }
+            else if(playerObj.moveLeft){
+                playerObj.changeTexture(playerTexLeftClose);    
+            }
+            else if(playerObj.moveRight){
+                playerObj.changeTexture(playerTexRightClose);    
+            }
+            mouthChange = true;
+        }
+        else if(deltaTime >= switchTime && mouthChange){
+            if(playerObj.moveUp){
+                playerObj.changeTexture(playerTexUp);
+            }
+            else if(playerObj.moveDown){
+                playerObj.changeTexture(playerTexDown);
+            }
+            else if(playerObj.moveLeft){
+                playerObj.changeTexture(playerTexLeft);
+            }
+            else if(playerObj.moveRight){
+                playerObj.changeTexture(playerTexRight);
+            }
+            mouthChange = false;
+        }
+        
         gameWindow.clear(); // clearing the buffer window
         DRAWMAZE(gameWindow, Food, mazeBox); // Drawing the maze with food and mazeBoxes
         gameWindow.draw(redGhostObj.getSprite());
