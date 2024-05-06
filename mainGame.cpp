@@ -114,7 +114,7 @@ public:
     PLAYER(Texture& texture){
         this->sprite.setTexture(texture);
         this->sprite.setScale(1.0f, 1.0f);
-        this->sprite.setPosition(PLAYERPOSX * CELLSIZE + 105, PLAYERPOSY * CELLSIZE + 100);
+        this->sprite.setPosition(PLAYERPOSX * CELLSIZE + 100, PLAYERPOSY * CELLSIZE + 100);
         this->score = 0;
         this->directionBuffer = 'R';
     }
@@ -152,16 +152,16 @@ void *PLAYERTHREAD(void *arg){
             for(int j = 0; j<gridCols; j++){
                 if (maze1[i][j] == 1) { // checking if maze can be placed here or not
                     mazeBox.setPosition(j * CELLSIZE + 100, i * CELLSIZE + 100); // placing temporary mazeBox at current location
-                    if(player->directionBuffer == 'U' && topRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving rightwards and it collides with walls 
+                    if(player->moveUp && topRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving rightwards and it collides with walls 
                         player->moveUp = false;
                     }
-                    else if(player->directionBuffer == 'D' && bottomRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving downwards and it collides with walls
+                    else if(player->moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving downwards and it collides with walls
                         player->moveDown = false;
                     }
-                    else if(player->directionBuffer == 'L' && leftRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving leftwards and it collides with walls
+                    else if(player->moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving leftwards and it collides with walls
                         player->moveLeft = false;
                     }
-                    else if(player->directionBuffer == 'R' && rightRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving upwards and it collides with walls
+                    else if(player->moveRight && rightRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving upwards and it collides with walls
                         player->moveRight = false;
                     }
                 }
@@ -175,7 +175,6 @@ void *PLAYERTHREAD(void *arg){
                         player->setScore(score += 1); //increasing score as the player eats food
                         playerAte = true;
                     }
-                    
                 }
             }            
         }
@@ -619,18 +618,22 @@ void *GAMEINIT(void *arg) { // main game thread
         }
 
         // taking user input
-        if(Keyboard::isKeyPressed(Keyboard::A))
-            playerObj.directionBuffer = 'L'; // setting direction buffer to left
-            
-        else if(Keyboard::isKeyPressed(Keyboard::W))
-            playerObj.directionBuffer = 'U'; // setting direction buffer to up
-            
-        else if(Keyboard::isKeyPressed(Keyboard::S))
-            playerObj.directionBuffer = 'D'; // setting direction buffer to down
-
-        else if(Keyboard::isKeyPressed(Keyboard::D))
-            playerObj.directionBuffer = 'R'; // setting direction buffer to right
-
+        if(Keyboard::isKeyPressed(Keyboard::W)) {
+            playerObj.moveUp = true;
+            playerObj.moveDown = playerObj.moveLeft = playerObj.moveRight = false;
+        }
+        else if(Keyboard::isKeyPressed(Keyboard::S)) {
+            playerObj.moveDown = true;
+            playerObj.moveUp = playerObj.moveLeft = playerObj.moveRight = false;
+        }
+        else if(Keyboard::isKeyPressed(Keyboard::A)) {
+            playerObj.moveLeft = true;
+            playerObj.moveDown = playerObj.moveUp = playerObj.moveRight = false;
+        }
+        else if(Keyboard::isKeyPressed(Keyboard::D)) {
+            playerObj.moveRight = true;
+            playerObj.moveDown = playerObj.moveLeft = playerObj.moveUp = false;
+        }
         // if(playerAte && mouthOpened){
         //     if(playerObj.moveUp){
         //         playerObj.changeTexture(playerTexUpClose);   
