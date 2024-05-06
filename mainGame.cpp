@@ -113,10 +113,10 @@ public:
 
     PLAYER(Texture& texture){
         this->sprite.setTexture(texture);
-        this->sprite.setScale(1.0f, 1.0f);
+        this->sprite.setScale(.9f, .9f);
         this->sprite.setPosition(PLAYERPOSX * CELLSIZE + 100, PLAYERPOSY * CELLSIZE + 100);
         this->score = 0;
-        this->directionBuffer = 'R';
+        this->directionBuffer = 'D';
     }
     // Getter for sprite
     Sprite& getSprite() { return this->sprite; }
@@ -125,7 +125,7 @@ public:
     //to change the face of pacman
     void changeTexture(Texture& tex){
         this->sprite.setTexture(tex);
-        this->sprite.setScale(1.0f, 1.0f);
+        this->sprite.setScale(.9f, .9f);
     }
     //getter for score
     int getScore() { return this->score; }
@@ -139,6 +139,7 @@ void *PLAYERTHREAD(void *arg){
     bool collisionDetected = false; // boolean for collision detection
 
     while(!threadExit){
+        collisionDetected = false;
         pthread_mutex_lock(&objectMovementSynchronisor);
         FloatRect playerBounds = player->getSprite().getGlobalBounds();
         // Defining collision rectangles for each side of the player
@@ -148,10 +149,54 @@ void *PLAYERTHREAD(void *arg){
         FloatRect bottomRect(playerBounds.left, playerBounds.top + playerBounds.height, playerBounds.width, 1); // getting bottom rect of player
 
         // checking collisions with walls
-        for(int i = 0; i<gridRows; i++){
-            for(int j = 0; j<gridCols; j++){
+        for(int i = 0; i < gridRows; i++){
+            for(int j = 0; j < gridCols; j++){
                 if (maze1[i][j] == 1) { // checking if maze can be placed here or not
                     mazeBox.setPosition(j * CELLSIZE + 100, i * CELLSIZE + 100); // placing temporary mazeBox at current location
+                    // if(player->directionBuffer == 'W'){ // if player is moving rightwards and it collides with walls 
+                    //     if (!topRect.intersects(mazeBox.getGlobalBounds())) {
+                    //         player->moveUp = true;
+                    //         player->moveDown = player->moveLeft = player->moveRight = false;
+                    //         cout << "Collision not detected up" << endl;
+                    //     }
+                    //     else {
+                    //         collisionDetected = true;
+                    //         break;
+                    //     }
+                    // }
+                    // else if(player->directionBuffer == 'S'){ // if player is moving downwards and it collides with walls
+                    //     if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
+                    //         player->moveDown = true;
+                    //         player->moveUp = player->moveLeft = player->moveRight = false;
+                    //         cout << "Collision not detected down" << endl;
+                    //     }
+                    //     else {
+                    //         collisionDetected = true;
+                    //         break;
+                    //     }
+                    // }
+                    // else if(player->directionBuffer == 'A'){ // if player is moving leftwards and it collides with walls
+                    //     if (!leftRect.intersects(mazeBox.getGlobalBounds())) {
+                    //         player->moveLeft = true;
+                    //         player->moveDown = player->moveUp = player->moveRight = false;
+                    //         cout << "Collision not detected left" << endl;
+                    //     }
+                    //     else {
+                    //         collisionDetected = true;
+                    //         break;
+                    //     }
+                    // }
+                    // else if(player->directionBuffer == 'D'){ // if player is moving upwards and it collides with walls
+                    //     if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
+                    //         player->moveRight = true;
+                    //         player->moveDown = player->moveLeft = player->moveUp = false;
+                    //         cout << "Collision not detected right" << endl;
+                    //     }
+                    //     else {
+                    //         collisionDetected = true;
+                    //         break;
+                    //     }
+                    // }
                     if(player->moveUp && topRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving rightwards and it collides with walls 
                         player->moveUp = false;
                     }
@@ -176,7 +221,9 @@ void *PLAYERTHREAD(void *arg){
                         playerAte = true;
                     }
                 }
-            }            
+            }     
+            if (collisionDetected)
+                break;       
         }
         // moving the player accordingly
         if (player->moveUp)
@@ -621,18 +668,22 @@ void *GAMEINIT(void *arg) { // main game thread
         if(Keyboard::isKeyPressed(Keyboard::W)) {
             playerObj.moveUp = true;
             playerObj.moveDown = playerObj.moveLeft = playerObj.moveRight = false;
+            // playerObj.directionBuffer = 'W';
         }
         else if(Keyboard::isKeyPressed(Keyboard::S)) {
             playerObj.moveDown = true;
             playerObj.moveUp = playerObj.moveLeft = playerObj.moveRight = false;
+            // playerObj.directionBuffer = 'S';
         }
         else if(Keyboard::isKeyPressed(Keyboard::A)) {
             playerObj.moveLeft = true;
             playerObj.moveDown = playerObj.moveUp = playerObj.moveRight = false;
+            // playerObj.directionBuffer = 'A';
         }
         else if(Keyboard::isKeyPressed(Keyboard::D)) {
             playerObj.moveRight = true;
             playerObj.moveDown = playerObj.moveLeft = playerObj.moveUp = false;
+            // playerObj.directionBuffer = 'D';
         }
         // if(playerAte && mouthOpened){
         //     if(playerObj.moveUp){
