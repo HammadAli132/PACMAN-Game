@@ -36,7 +36,18 @@ vector<vector<int>> maze1 = {
 bool threadExit = false; // this is a boolean to close all detached threads when the game closes
 Sprite mazeBox; // creating a sprite for Game Grid
 Texture box; // creating a texture for maze.png
-CircleShape Food(5.0f); // this is our circular food
+// these are open mouth textures
+Texture playerTexLeft;
+Texture playerTexRight;
+Texture playerTexUp;
+Texture playerTexDown;
+// these are closed mouth textures
+Texture playerTexLeftClose;
+Texture playerTexRightClose;
+Texture playerTexUpClose;
+Texture playerTexDownClose;
+// this is our circular food
+CircleShape Food(5.0f); 
 pthread_mutex_t objectMovementSynchronisor;
 int currentGhostToLeave = 0;
 #define SPEEDBOOST 0.2f
@@ -79,7 +90,7 @@ public:
     // Getter for speed
     float getSpeed() const { return speed; }
     // Setter for speed
-    void setSpeed(int sp) { this->speed = sp; }
+    void setSpeed(float sp) { this->speed = sp; }
     // Getter for target
     pair<int, int> getTarget() const { return target; }
     // Setter for target
@@ -92,15 +103,20 @@ private:
     int score;
     
 public:
+
     bool moveLeft = false; // boolean for left movement
     bool moveRight = true; // boolean for right movement
     bool moveUp = false; // boolean for up movement
     bool moveDown = false; // boolean for down movement
+
+    char directionBuffer;
+
     PLAYER(Texture& texture){
         this->sprite.setTexture(texture);
-        this->sprite.setScale(0.8f, 0.8f);
+        this->sprite.setScale(1.0f, 1.0f);
         this->sprite.setPosition(PLAYERPOSX * CELLSIZE + 105, PLAYERPOSY * CELLSIZE + 100);
         this->score = 0;
+        this->directionBuffer = 'R';
     }
     // Getter for sprite
     Sprite& getSprite() { return this->sprite; }
@@ -109,7 +125,7 @@ public:
     //to change the face of pacman
     void changeTexture(Texture& tex){
         this->sprite.setTexture(tex);
-        this->sprite.setScale(0.8f, 0.8f);
+        this->sprite.setScale(1.0f, 1.0f);
     }
     //getter for score
     int getScore() { return this->score; }
@@ -136,21 +152,21 @@ void *PLAYERTHREAD(void *arg){
             for(int j = 0; j<gridCols; j++){
                 if (maze1[i][j] == 1) { // checking if maze can be placed here or not
                     mazeBox.setPosition(j * CELLSIZE + 100, i * CELLSIZE + 100); // placing temporary mazeBox at current location
-                    if(player->moveUp && topRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving rightwards and it collides with walls 
+                    if(player->directionBuffer == 'U' && topRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving rightwards and it collides with walls 
                         player->moveUp = false;
                     }
-                    else if(player->moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving downwards and it collides with walls
+                    else if(player->directionBuffer == 'D' && bottomRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving downwards and it collides with walls
                         player->moveDown = false;
                     }
-                    else if(player->moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving leftwards and it collides with walls
+                    else if(player->directionBuffer == 'L' && leftRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving leftwards and it collides with walls
                         player->moveLeft = false;
                     }
-                    else if(player->moveRight && rightRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving upwards and it collides with walls
+                    else if(player->directionBuffer == 'R' && rightRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving upwards and it collides with walls
                         player->moveRight = false;
                     }
                 }
                 //detecting player's collision with food
-                else if(maze1[i][j] == 0){
+                if(maze1[i][j] == 0){
                     Food.setPosition((j * CELLSIZE + ((CELLSIZE / 2) - 5)) + 100, (i * CELLSIZE + ((CELLSIZE / 2) - 5)) + 100); //placing temporary Food at current position
                     FloatRect FoodBounds = Food.getGlobalBounds();
                     if(playerBounds.intersects(FoodBounds)){
@@ -409,50 +425,61 @@ void MOVESEMIINTELLIGENTGHOST(bool &collisionDetected, bool &leftHome, GHOST *gh
             do {
                 newX = rand() % (gridCols - 1) + 1; // Exclude border cells (0th row and column)
                 newY = rand() % (gridRows - 1) + 1; // Exclude border cells (0th row and column)
-            } while(maze1[newY][newX] == 1 || newX == ghost->getTarget().first || newY == ghost->getTarget().second); // Check if the new position is valid
+            } while(maze1[newY][newX] == 1); // Check if the new position is valid
             ghost->setTarget(make_pair(newX, newY)); // setting new target for ghost
+            cout << "New target has X: " << newX << " and Y: " << newY << endl;
         }
 
-        // Create a visited array to keep track of visited cells
-        bool visited[gridRows][gridCols] = {false};
+        // getting current position of ghost
+        pair<int, int> currentPosition = make_pair((ghostBounds.left - 100) / CELLSIZE, (ghostBounds.top - 100) / CELLSIZE);
 
-        // Create a queue for BFS
-        queue<Cell> q;
-
-        // Starting cell
-        int startX = (ghostBounds.left - 100) / CELLSIZE;
-        int startY = (ghostBounds.top - 100) / CELLSIZE;
-        q.push(Cell(startX, startY, 0)); // Add the starting cell to the queue
-        visited[startY][startX] = true; // Mark the starting cell as visited
-        
-        // Perform BFS
-        while (!q.empty()) {
-            Cell current = q.front(); // Get the current position of ghost
-            q.pop(); // Remove the front cell from the queue
-
-            // checking the placement of target w.r.t current position
-            if (current.x < ghost->getTarget().first && current.y > ghost->getTarget().second) { // this means target is on the upper-right side
-                // these arrays represent the directions available
-                int dx[] = {0, 1};
-                int dy[] = {-1, 0};
+        // checking the placement of target w.r.t current position
+        if (currentPosition.first < ghost->getTarget().first && currentPosition.second > ghost->getTarget().second) { // this means target is on the upper-right side
+            // we only have to move up or right
+            cout << "Top right" << endl;
+            if (maze1[currentPosition.second + 1][currentPosition.first] == 1) { // if there is a block on right side
+                ghost->moveUp = true; // we can only move upwards
+                ghost->moveDown = ghost->moveLeft = ghost->moveRight = false;
             }
-            else if (current.x > ghost->getTarget().first && current.y > ghost->getTarget().second) { // this means target is on the upper-left side
-                // these arrays represent the directions available
-                int dx[] = {0, -1};
-                int dy[] = {-1, 0};
-
+            else if (maze1[currentPosition.second][currentPosition.first - 1] == 1) { // if there is a block on above
+                ghost->moveRight = true; // we can only move rightwards
+                ghost->moveDown = ghost->moveLeft = ghost->moveUp = false;
             }
-            else if (current.x < ghost->getTarget().first && current.y < ghost->getTarget().second) { // this means target is on the lower-right side
-                // these arrays represent the directions available
-                int dx[] = {0, 1};
-                int dy[] = {-1, 0};
-
+        }
+        else if (currentPosition.first > ghost->getTarget().first && currentPosition.second > ghost->getTarget().second) { // this means target is on the upper-left side
+            // we only have to move up or left
+            cout << "Top left" << endl;
+            if (maze1[currentPosition.second - 1][currentPosition.first] == 1) { // if there is a block on left side
+                ghost->moveUp = true; // we can only move upwards
+                ghost->moveDown = ghost->moveLeft = ghost->moveRight = false;
             }
-            else if (current.x > ghost->getTarget().first && current.y < ghost->getTarget().second) { // this means target is on the lower-left side
-                // these arrays represent the directions available
-                int dx[] = {0, 1};
-                int dy[] = {-1, 0};
-
+            else if (maze1[currentPosition.second][currentPosition.first - 1] == 1) { // if there is a block on above
+                ghost->moveLeft = true; // we can only move leftwards
+                ghost->moveDown = ghost->moveUp = ghost->moveRight = false;
+            }
+        }
+        else if (currentPosition.first < ghost->getTarget().first && currentPosition.second < ghost->getTarget().second) { // this means target is on the lower-right side
+            // we only have to move down or right
+            cout << "Bottom right" << endl;
+            if (maze1[currentPosition.second + 1][currentPosition.first] == 1) { // if there is a block on right side
+                ghost->moveDown = true; // we can only move downwards
+                ghost->moveUp = ghost->moveLeft = ghost->moveRight = false;
+            }
+            else if (maze1[currentPosition.second][currentPosition.first + 1] == 1) { // if there is a block below
+                ghost->moveRight = true; // we can only move rightwards
+                ghost->moveDown = ghost->moveLeft = ghost->moveUp = false;
+            }
+        }
+        else if (currentPosition.first > ghost->getTarget().first && currentPosition.second < ghost->getTarget().second) { // this means target is on the lower-left side
+            // we only have to move down or left
+            cout << "Bottom left" << endl;
+            if (maze1[currentPosition.second - 1][currentPosition.first] == 1) { // if there is a block on left side
+                ghost->moveDown = true; // we can only move downwards
+                ghost->moveUp = ghost->moveLeft = ghost->moveRight = false;
+            }
+            else if (maze1[currentPosition.second][currentPosition.first + 1] == 1) { // if there is a block below
+                ghost->moveLeft = true; // we can only move leftwards
+                ghost->moveDown = ghost->moveUp = ghost->moveRight = false;
             }
         }
     }
@@ -521,7 +548,8 @@ void *GAMEINIT(void *arg) { // main game thread
 
     Texture redGhostTex;
     redGhostTex.loadFromFile("sprites/redGhost.png"); // loading a red ghost png
-    GHOST redGhostObj(redGhostTex, 0, 1); // creating a ghost obj with (texture, startingNumber, mode)
+    GHOST redGhostObj(redGhostTex, 0, 0); // creating a ghost obj with (texture, startingNumber, mode)
+    redGhostObj.setSpeed(SPEEDBOOST);
 
     Texture greenGhostTex;
     greenGhostTex.loadFromFile("sprites/greenGhost.png"); // loading a red ghost png
@@ -539,22 +567,14 @@ void *GAMEINIT(void *arg) { // main game thread
     blueGhostTex.loadFromFile("sprites/blueGhost.png"); // loading a red ghost png
     GHOST blueGhostObj(blueGhostTex, 4, 0); // creating a ghost obj with (texture, startingNumber, mode)
 
-    Texture playerTexLeft;
     playerTexLeft.loadFromFile("sprites/mouthOpenLeft.png"); // loading left side player png
-    Texture playerTexRight;
     playerTexRight.loadFromFile("sprites/mouthOpenRight.png"); // loading default player png
-    Texture playerTexUp;
     playerTexUp.loadFromFile("sprites/mouthOpenUp.png"); // loading upwards player png
-    Texture playerTexDown;
     playerTexDown.loadFromFile("sprites/mouthOpenDown.png"); // loading downwards player png
 
-    Texture playerTexLeftClose;
     playerTexLeftClose.loadFromFile("sprites/leftMouthClose.png"); // loading left side player png
-    Texture playerTexRightClose;
     playerTexRightClose.loadFromFile("sprites/rightMouthClose.png"); // loading default player png
-    Texture playerTexUpClose;
     playerTexUpClose.loadFromFile("sprites/upMouthClose.png"); // loading upwards player png
-    Texture playerTexDownClose;
     playerTexDownClose.loadFromFile("sprites/downMouthClose.png"); // loading downwards player png
 
     PLAYER playerObj(playerTexRight); // creating player obj
@@ -580,7 +600,7 @@ void *GAMEINIT(void *arg) { // main game thread
     pthread_attr_init(&detachProp); // initializing that property
     pthread_attr_setdetachstate(&detachProp, PTHREAD_CREATE_DETACHED); // making it detachable
     pthread_t ghostThread[4]; 
-    pthread_create(&ghostThread[0], &detachProp, GHOSTTHREAD, (void **) &redGhostObj); // creating a detachable ghost thread
+    // pthread_create(&ghostThread[0], &detachProp, GHOSTTHREAD, (void **) &redGhostObj); // creating a detachable ghost thread
     // pthread_create(&ghostThread[1], &detachProp, GHOSTTHREAD, (void **) &greenGhostObj); // creating a detachable ghost thread
     // pthread_create(&ghostThread[2], &detachProp, GHOSTTHREAD, (void **) &pinkGhostObj); // creating a detachable ghost thread
     // pthread_create(&ghostThread[3], &detachProp, GHOSTTHREAD, (void **) &yellowGhostObj); // creating a detachable ghost thread
@@ -599,63 +619,54 @@ void *GAMEINIT(void *arg) { // main game thread
         }
 
         // taking user input
-        if(Keyboard::isKeyPressed(Keyboard::A)){
-            playerObj.changeTexture(playerTexLeft);
-            playerObj.moveLeft = true;
-            playerObj.moveRight = playerObj.moveUp = playerObj.moveUp = playerObj.moveDown = false;
-        }
-        else if(Keyboard::isKeyPressed(Keyboard::W)){
-            playerObj.changeTexture(playerTexUp);
-            playerObj.moveUp = true;
-            playerObj.moveLeft = playerObj.moveRight = playerObj.moveDown = false;
-        }
-        else if(Keyboard::isKeyPressed(Keyboard::S)){
-            playerObj.changeTexture(playerTexDown);
-            playerObj.moveDown = true;
-            playerObj.moveLeft = playerObj.moveRight = playerObj.moveUp = false;
-        }
-        else if(Keyboard::isKeyPressed(Keyboard::D)){
-            playerObj.changeTexture(playerTexRight);
-            playerObj.moveRight = true;
-            playerObj.moveLeft = playerObj.moveUp = playerObj.moveDown = false;
-        }
+        if(Keyboard::isKeyPressed(Keyboard::A))
+            playerObj.directionBuffer = 'L'; // setting direction buffer to left
+            
+        else if(Keyboard::isKeyPressed(Keyboard::W))
+            playerObj.directionBuffer = 'U'; // setting direction buffer to up
+            
+        else if(Keyboard::isKeyPressed(Keyboard::S))
+            playerObj.directionBuffer = 'D'; // setting direction buffer to down
 
-        if(playerAte && mouthOpened){
-            if(playerObj.moveUp){
-                playerObj.changeTexture(playerTexUpClose);   
-            }
-            else if(playerObj.moveDown){
-                playerObj.changeTexture(playerTexDownClose);   
-            }
-            else if(playerObj.moveLeft){
-                playerObj.changeTexture(playerTexLeftClose);    
-            }
-            else if(playerObj.moveRight){
-                playerObj.changeTexture(playerTexRightClose);    
-            }
-            mouthOpened = false;
-            playerAte = false;
-        }
-        else if(playerAte && !mouthOpened){
-            if(playerObj.moveUp){
-                playerObj.changeTexture(playerTexUp);
-            }
-            else if(playerObj.moveDown){
-                playerObj.changeTexture(playerTexDown);
-            }
-            else if(playerObj.moveLeft){
-                playerObj.changeTexture(playerTexLeft);
-            }
-            else if(playerObj.moveRight){
-                playerObj.changeTexture(playerTexRight);
-            }
-            mouthOpened = true;
-            playerAte = false;
-        }
+        else if(Keyboard::isKeyPressed(Keyboard::D))
+            playerObj.directionBuffer = 'R'; // setting direction buffer to right
+
+        // if(playerAte && mouthOpened){
+        //     if(playerObj.moveUp){
+        //         playerObj.changeTexture(playerTexUpClose);   
+        //     }
+        //     else if(playerObj.moveDown){
+        //         playerObj.changeTexture(playerTexDownClose);   
+        //     }
+        //     else if(playerObj.moveLeft){
+        //         playerObj.changeTexture(playerTexLeftClose);    
+        //     }
+        //     else if(playerObj.moveRight){
+        //         playerObj.changeTexture(playerTexRightClose);    
+        //     }
+        //     mouthOpened = false;
+        //     playerAte = false;
+        // }
+        // else if(playerAte && !mouthOpened){
+        //     if(playerObj.moveUp){
+        //         playerObj.changeTexture(playerTexUp);
+        //     }
+        //     else if(playerObj.moveDown){
+        //         playerObj.changeTexture(playerTexDown);
+        //     }
+        //     else if(playerObj.moveLeft){
+        //         playerObj.changeTexture(playerTexLeft);
+        //     }
+        //     else if(playerObj.moveRight){
+        //         playerObj.changeTexture(playerTexRight);
+        //     }
+        //     mouthOpened = true;
+        //     playerAte = false;
+        // }
         
         gameWindow.clear(); // clearing the buffer window
         DRAWMAZE(gameWindow, Food, mazeBox); // Drawing the maze with food and mazeBoxes
-        gameWindow.draw(redGhostObj.getSprite());
+        // gameWindow.draw(redGhostObj.getSprite());
         // gameWindow.draw(greenGhostObj.getSprite());
         // gameWindow.draw(pinkGhostObj.getSprite());
         // gameWindow.draw(yellowGhostObj.getSprite());
