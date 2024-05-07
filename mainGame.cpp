@@ -49,6 +49,8 @@ Texture playerTexDownClose;
 // this is our circular food
 CircleShape Food(5.0f); 
 pthread_mutex_t objectMovementSynchronisor;
+int totalThreads = 6;
+int exitedThread = 0;
 int currentGhostToLeave = 0;
 #define SPEEDBOOST 0.2f
 bool playerAte = false;
@@ -103,20 +105,16 @@ private:
     int score;
     
 public:
-
-    bool moveLeft = false; // boolean for left movement
-    bool moveRight = true; // boolean for right movement
-    bool moveUp = false; // boolean for up movement
-    bool moveDown = false; // boolean for down movement
-
-    char directionBuffer;
+    char currentDir;
+    char prevDir;
 
     PLAYER(Texture& texture){
         this->sprite.setTexture(texture);
-        this->sprite.setScale(.9f, .9f);
+        this->sprite.setScale(1.0f, 1.0f);
         this->sprite.setPosition(PLAYERPOSX * CELLSIZE + 100, PLAYERPOSY * CELLSIZE + 100);
         this->score = 0;
-        this->directionBuffer = 'D';
+        this->currentDir = '-';
+        this->prevDir = '-';
     }
     // Getter for sprite
     Sprite& getSprite() { return this->sprite; }
@@ -125,7 +123,7 @@ public:
     //to change the face of pacman
     void changeTexture(Texture& tex){
         this->sprite.setTexture(tex);
-        this->sprite.setScale(.9f, .9f);
+        this->sprite.setScale(1.0f, 1.0f);
     }
     //getter for score
     int getScore() { return this->score; }
@@ -153,65 +151,37 @@ void *PLAYERTHREAD(void *arg){
             for(int j = 0; j < gridCols; j++){
                 if (maze1[i][j] == 1) { // checking if maze can be placed here or not
                     mazeBox.setPosition(j * CELLSIZE + 100, i * CELLSIZE + 100); // placing temporary mazeBox at current location
-                    // if(player->directionBuffer == 'W'){ // if player is moving rightwards and it collides with walls 
-                    //     if (!topRect.intersects(mazeBox.getGlobalBounds())) {
-                    //         player->moveUp = true;
-                    //         player->moveDown = player->moveLeft = player->moveRight = false;
-                    //         cout << "Collision not detected up" << endl;
-                    //     }
-                    //     else {
-                    //         collisionDetected = true;
-                    //         break;
-                    //     }
-                    // }
-                    // else if(player->directionBuffer == 'S'){ // if player is moving downwards and it collides with walls
-                    //     if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                    //         player->moveDown = true;
-                    //         player->moveUp = player->moveLeft = player->moveRight = false;
-                    //         cout << "Collision not detected down" << endl;
-                    //     }
-                    //     else {
-                    //         collisionDetected = true;
-                    //         break;
-                    //     }
-                    // }
-                    // else if(player->directionBuffer == 'A'){ // if player is moving leftwards and it collides with walls
-                    //     if (!leftRect.intersects(mazeBox.getGlobalBounds())) {
-                    //         player->moveLeft = true;
-                    //         player->moveDown = player->moveUp = player->moveRight = false;
-                    //         cout << "Collision not detected left" << endl;
-                    //     }
-                    //     else {
-                    //         collisionDetected = true;
-                    //         break;
-                    //     }
-                    // }
-                    // else if(player->directionBuffer == 'D'){ // if player is moving upwards and it collides with walls
-                    //     if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
-                    //         player->moveRight = true;
-                    //         player->moveDown = player->moveLeft = player->moveUp = false;
-                    //         cout << "Collision not detected right" << endl;
-                    //     }
-                    //     else {
-                    //         collisionDetected = true;
-                    //         break;
-                    //     }
-                    // }
-                    if(player->moveUp && topRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving rightwards and it collides with walls 
-                        player->moveUp = false;
+                    if (player->currentDir == 'W'){ // if player is moving rightwards and it collides with walls 
+                        if (topRect.intersects(mazeBox.getGlobalBounds())) {
+                            player->currentDir = player->prevDir;
+                            player->prevDir = '-';
+                            collisionDetected = true;
+                        }
                     }
-                    else if(player->moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving downwards and it collides with walls
-                        player->moveDown = false;
+                    else if(player->currentDir == 'S'){ // if player is moving downwards and it collides with walls
+                        if (bottomRect.intersects(mazeBox.getGlobalBounds())) {
+                            player->currentDir = player->prevDir;
+                            player->prevDir = '-';
+                            collisionDetected = true;
+                        }
                     }
-                    else if(player->moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving leftwards and it collides with walls
-                        player->moveLeft = false;
+                    else if(player->currentDir == 'A'){ // if player is moving leftwards and it collides with walls
+                        if (leftRect.intersects(mazeBox.getGlobalBounds())) {
+                            player->currentDir = player->prevDir;
+                            player->prevDir = '-';
+                            collisionDetected = true;
+                        }
                     }
-                    else if(player->moveRight && rightRect.intersects(mazeBox.getGlobalBounds())){ // if player is moving upwards and it collides with walls
-                        player->moveRight = false;
+                    else if(player->currentDir == 'D'){ // if player is moving upwards and it collides with walls
+                        if (rightRect.intersects(mazeBox.getGlobalBounds())) {
+                            player->currentDir = player->prevDir;
+                            player->prevDir = '-';
+                            collisionDetected = true;
+                        }   
                     }
                 }
                 //detecting player's collision with food
-                if(maze1[i][j] == 0){
+                else if(maze1[i][j] == 0){
                     Food.setPosition((j * CELLSIZE + ((CELLSIZE / 2) - 5)) + 100, (i * CELLSIZE + ((CELLSIZE / 2) - 5)) + 100); //placing temporary Food at current position
                     FloatRect FoodBounds = Food.getGlobalBounds();
                     if(playerBounds.intersects(FoodBounds)){
@@ -221,22 +191,23 @@ void *PLAYERTHREAD(void *arg){
                         playerAte = true;
                     }
                 }
-            }     
-            if (collisionDetected)
-                break;       
+            }           
         }
+        if (!collisionDetected)
+            player->prevDir = '-';
         // moving the player accordingly
-        if (player->moveUp)
+        if (player->currentDir == 'W')
             player->getSprite().move(0.0f, -1.0f);
-        else if (player->moveLeft)
+        else if (player->currentDir == 'A')
             player->getSprite().move(-1.0f, 0.0f);
-        else if (player->moveRight)
+        else if (player->currentDir == 'D')
             player->getSprite().move(1.0f, 0.0f);
-        else if (player->moveDown)
+        else if (player->currentDir == 'S')
             player->getSprite().move(0.0f, 1.0f);
         pthread_mutex_unlock(&objectMovementSynchronisor);
         sleep(milliseconds(5));
     }
+    exitedThread++;
     pthread_exit(NULL);    
 }
 
@@ -566,6 +537,7 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
             sleep(milliseconds(5));
         }
     }
+    exitedThread++;
     pthread_exit(NULL);
 }
 
@@ -646,10 +618,10 @@ void *GAMEINIT(void *arg) { // main game thread
     pthread_attr_init(&detachProp); // initializing that property
     pthread_attr_setdetachstate(&detachProp, PTHREAD_CREATE_DETACHED); // making it detachable
     pthread_t ghostThread[4]; 
-    // pthread_create(&ghostThread[0], &detachProp, GHOSTTHREAD, (void **) &redGhostObj); // creating a detachable ghost thread
-    // pthread_create(&ghostThread[1], &detachProp, GHOSTTHREAD, (void **) &greenGhostObj); // creating a detachable ghost thread
-    // pthread_create(&ghostThread[2], &detachProp, GHOSTTHREAD, (void **) &pinkGhostObj); // creating a detachable ghost thread
-    // pthread_create(&ghostThread[3], &detachProp, GHOSTTHREAD, (void **) &yellowGhostObj); // creating a detachable ghost thread
+    pthread_create(&ghostThread[0], &detachProp, GHOSTTHREAD, (void **) &redGhostObj); // creating a detachable ghost thread
+    pthread_create(&ghostThread[1], &detachProp, GHOSTTHREAD, (void **) &greenGhostObj); // creating a detachable ghost thread
+    pthread_create(&ghostThread[2], &detachProp, GHOSTTHREAD, (void **) &pinkGhostObj); // creating a detachable ghost thread
+    pthread_create(&ghostThread[3], &detachProp, GHOSTTHREAD, (void **) &yellowGhostObj); // creating a detachable ghost thread
 
     pthread_t playerThread; 
     pthread_create(&playerThread, &detachProp, PLAYERTHREAD, (void **) &playerObj); // creating a detachable player thread
@@ -665,26 +637,24 @@ void *GAMEINIT(void *arg) { // main game thread
         }
 
         // taking user input
-        if(Keyboard::isKeyPressed(Keyboard::W)) {
-            playerObj.moveUp = true;
-            playerObj.moveDown = playerObj.moveLeft = playerObj.moveRight = false;
-            // playerObj.directionBuffer = 'W';
+        pthread_mutex_lock(&objectMovementSynchronisor);
+        if(Keyboard::isKeyPressed(Keyboard::W) && playerObj.currentDir != 'W') {
+            playerObj.prevDir = playerObj.currentDir;
+            playerObj.currentDir = 'W';
         }
-        else if(Keyboard::isKeyPressed(Keyboard::S)) {
-            playerObj.moveDown = true;
-            playerObj.moveUp = playerObj.moveLeft = playerObj.moveRight = false;
-            // playerObj.directionBuffer = 'S';
+        else if(Keyboard::isKeyPressed(Keyboard::S) && playerObj.currentDir != 'S') {
+            playerObj.prevDir = playerObj.currentDir;
+            playerObj.currentDir = 'S';
         }
-        else if(Keyboard::isKeyPressed(Keyboard::A)) {
-            playerObj.moveLeft = true;
-            playerObj.moveDown = playerObj.moveUp = playerObj.moveRight = false;
-            // playerObj.directionBuffer = 'A';
+        else if(Keyboard::isKeyPressed(Keyboard::A) && playerObj.currentDir != 'A') {
+            playerObj.prevDir = playerObj.currentDir;
+            playerObj.currentDir = 'A';
         }
-        else if(Keyboard::isKeyPressed(Keyboard::D)) {
-            playerObj.moveRight = true;
-            playerObj.moveDown = playerObj.moveLeft = playerObj.moveUp = false;
-            // playerObj.directionBuffer = 'D';
+        else if(Keyboard::isKeyPressed(Keyboard::D) && playerObj.currentDir != 'D') {
+            playerObj.prevDir = playerObj.currentDir;
+            playerObj.currentDir = 'D';
         }
+        pthread_mutex_unlock(&objectMovementSynchronisor);
         // if(playerAte && mouthOpened){
         //     if(playerObj.moveUp){
         //         playerObj.changeTexture(playerTexUpClose);   
@@ -720,10 +690,10 @@ void *GAMEINIT(void *arg) { // main game thread
         
         gameWindow.clear(); // clearing the buffer window
         DRAWMAZE(gameWindow, Food, mazeBox); // Drawing the maze with food and mazeBoxes
-        // gameWindow.draw(redGhostObj.getSprite());
-        // gameWindow.draw(greenGhostObj.getSprite());
-        // gameWindow.draw(pinkGhostObj.getSprite());
-        // gameWindow.draw(yellowGhostObj.getSprite());
+        gameWindow.draw(redGhostObj.getSprite());
+        gameWindow.draw(greenGhostObj.getSprite());
+        gameWindow.draw(pinkGhostObj.getSprite());
+        gameWindow.draw(yellowGhostObj.getSprite());
         gameWindow.draw(playerObj.getSprite());
         gameWindow.draw(displayScoreString);
         displayScore.setString(to_string(playerObj.getScore())); //converting score to string so that it can be displayed
@@ -732,14 +702,58 @@ void *GAMEINIT(void *arg) { // main game thread
     }
 
     threadExit = true;
+    exitedThread++;
     pthread_exit(NULL);
 }
+
+int getCurrentThreadCount() {
+    // Open a pipe to run the ps command
+    FILE* pipe = popen("ps -T | wc -l", "r");
+    if (!pipe) {
+        std::cerr << "Error: Unable to run ps command." << std::endl;
+        return -1;
+    }
+
+    // Read the output of the ps command
+    char buffer[128];
+    std::string result = "";
+    while (!feof(pipe)) {
+        if (fgets(buffer, 128, pipe) != nullptr)
+            result += buffer;
+    }
+
+    // Close the pipe
+    pclose(pipe);
+
+    // Convert the result to an integer
+    int threadCount = 0;
+    try {
+        threadCount = std::stoi(result);
+    } catch (const std::exception& e) {
+        std::cerr << "Error: Unable to convert ps output to integer." << std::endl;
+        return -1;
+    }
+
+    // int totalThreadCount = getCurrentThreadCount();
+    // cout << "Total threads: " << totalThreadCount << endl;
+
+    // Subtract 1 to exclude the header row from the count
+    return threadCount - 1;
+}
+
 
 int main()
 {
     pthread_t startGame;
-    pthread_create(&startGame, NULL, GAMEINIT, NULL); // initiating main game thread
-    pthread_join(startGame, NULL); // waiting for game thread to exit
+    pthread_attr_t detachProp; // setting detachable property
+    pthread_attr_init(&detachProp); // initializing that property
+    pthread_attr_setdetachstate(&detachProp, PTHREAD_CREATE_DETACHED); // making it detachable
+    pthread_create(&startGame, &detachProp, GAMEINIT, NULL); // initiating main game thread
+    pthread_attr_destroy(&detachProp);
+    while (true) {
+        if (threadExit && exitedThread == totalThreads)
+            break;
+    }
     pthread_mutex_destroy(&objectMovementSynchronisor);
     return 0;
 }
