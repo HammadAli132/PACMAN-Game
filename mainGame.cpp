@@ -48,17 +48,23 @@ Texture playerTexUpClose;
 Texture playerTexDownClose;
 // this is our circular food
 CircleShape Food(5.0f); 
+int pacmanGhostXCoord = 2;
+int pacmanGhostYCoord = 15;
 pthread_mutex_t objectMovementSynchronisor;
-int totalThreads = 6;
+pthread_mutex_t pathFinder;
+int totalThreads = 1;
 int exitedThread = 0;
 int currentGhostToLeave = 0;
 #define SPEEDBOOST 0.2f
-bool playerAte = false;
+
+struct Point {
+    int row, col;
+};
 
 class GHOST {
 private:
     Sprite sprite; // Ghost sprite
-    int turn; // Ghost's turn
+    int ID; // Ghost's turn
     int mode; // Ghost mode (e.g., scatter, chase)
     float speed; // this is ghost's speed used for speed boost
     pair<int, int> target; // this is the ghost's target having x and y co-ordinates
@@ -68,11 +74,14 @@ public:
     bool moveRight = false; // boolean for right movement
     bool moveUp = true; // boolean for up movement
     bool moveDown = false; // boolean for down movement
+    vector<Point> ghostPath;
+    int currentTarget = 0;
+
     GHOST(Texture &text, int t, int m = 0, float sp = 0) { // Constructor
         this->sprite.setTexture(text);
-        this->sprite.setScale(0.3f, 0.3f);
-        this->sprite.setPosition(GHOSTHOMEX * CELLSIZE + 101, GHOSTHOMEY * CELLSIZE + 100);
-        this->turn = t;
+        this->sprite.setScale(1.0f, 1.0f);
+        this->sprite.setPosition(GHOSTHOMEX * CELLSIZE + 100, GHOSTHOMEY * CELLSIZE + 100);
+        this->ID = t;
         this->mode = m;
         this->speed = sp;
         target = make_pair(10, 6);
@@ -82,9 +91,9 @@ public:
     // Setter for sprite
     void setSprite(Sprite sprite) { this->sprite = sprite; }
     // Getter for turn
-    int getTurn() const { return turn; }
+    int getID() const { return ID; }
     // Setter for turn
-    void setTurn(int turn) { this->turn = turn; }
+    void setID(int ID) { this->ID = ID; }
     // Getter for mode
     int getMode() const { return mode; }
     // Setter for mode
@@ -129,6 +138,11 @@ public:
     int getScore() { return this->score; }
     //setter for score;
     void setScore(int Score) { this->score = Score; }
+};
+
+struct GHOSTARGS {
+    PLAYER *player;
+    GHOST *ghost;
 };
 
 void *PLAYERTHREAD(void *arg){
@@ -188,7 +202,6 @@ void *PLAYERTHREAD(void *arg){
                         maze1[i][j] = -99;
                         int score = player->getScore();
                         player->setScore(score += 1); //increasing score as the player eats food
-                        playerAte = true;
                     }
                 }
             }           
@@ -234,7 +247,7 @@ void LEAVEHOME(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
                         leftHome = true;
                     }
                     while (collisionDetected){
-                        int randomDirection = abs(rand() % 3); // we get random direction for our ghost
+                        int randomDirection = abs(rand() % 2); // we get random direction for our ghost
                         // checking if that direction is available or not
                         switch(randomDirection) {
                             case 0: // for left movement
@@ -249,12 +262,6 @@ void LEAVEHOME(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
                                     collisionDetected = false; // collision detected is set to false
                                 }
                             break;
-                            case 2: // for down movement
-                                if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                                    ghost->moveDown = true; 
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
                         }
                     }
                     ghost->moveUp = false;
@@ -265,274 +272,244 @@ void LEAVEHOME(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
     return;
 }
 
-void MOVESIMPLEGHOST(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
-    if (!leftHome)
-        LEAVEHOME(collisionDetected, leftHome, ghost);
-    else {
-        // Getting the global bounds of the ghost
-        FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
+// Function to check if a point is valid (within the bounds of the grid)
+bool isValid(int x, int y) {
+    return (x >= 0 && x < gridRows && y >= 0 && y < gridCols);
+}
 
-        // Defining collision rectangles for each side of the ghost
-        FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
-        FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height); // getting right rect of ghost
-        FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
-        FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
+// Function to perform BFS and return the path to the target
+void GETPATHTOTARGET(GHOST *ghost, Point start, Point target) {
+    vector<vector<bool>> visited(gridRows, vector<bool>(gridCols, false));
+    vector<vector<Point>> parent(gridRows, vector<Point>(gridCols, { -1, -1 }));
 
-        for (int i = 0; i < gridRows; ++i) { // Iterating through all maze boxes
-            for (int j = 0; j < gridCols; ++j) {
-                if (maze1[i][j] == 1) { // if maze[i][j] is 1 then we can place a temporary mazeBox there
-                    mazeBox.setPosition(j * CELLSIZE + 100, i * CELLSIZE + 100); // placing temporary mazeBox at current location
-                    // if ghost is moving up wards and collision is detected above the ghost
-                    if (ghost->moveUp && topRect.intersects(mazeBox.getGlobalBounds())) {
-                        collisionDetected = true; // since collision is detected, so we set it to true
-                        while (collisionDetected){
-                            int randomDirection = abs(rand() % 3); // we get random direction for our ghost
-                            // checking if that direction is available or not
-                            switch(randomDirection) {
-                                case 0: // for left movement
-                                    if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
-                                        ghost->moveLeft = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 1: // for right movement
-                                    if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
-                                        ghost->moveRight = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 2: // for down movement
-                                    if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                                        ghost->moveDown = true; 
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                            }
-                        }
-                        ghost->moveUp = false;
-                    }
-                    // if ghost is moving left wards and collision is detected on left side of the ghost
-                    if (ghost->moveLeft && leftRect.intersects(mazeBox.getGlobalBounds())) {
-                        collisionDetected = true; // since collision is detected, so we set it to true
-                        while (collisionDetected){
-                            int randomDirection = abs(rand() % 3); // we get random direction for our ghost
-                            // checking if that direction is available or not
-                            switch(randomDirection) {
-                                case 0: // for left movement
-                                    if (!topRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle above, we allow upward movement
-                                        ghost->moveUp = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 1: // for right movement
-                                    if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
-                                        ghost->moveRight = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 2: // for down movement
-                                    if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                                        ghost->moveDown = true; 
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                            }
-                        }
-                        ghost->moveLeft = false;
-                    }
-                    // if ghost is moving right wards and collision is detected on right side of the ghost
-                    if (ghost->moveRight && rightRect.intersects(mazeBox.getGlobalBounds())) {
-                        collisionDetected = true; // since collision is detected, so we set it to true
-                        while (collisionDetected){
-                            int randomDirection = abs(rand() % 3); // we get random direction for our ghost
-                            // checking if that direction is available or not
-                            switch(randomDirection) {
-                                case 0: // for left movement
-                                    if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
-                                        ghost->moveLeft = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 1: // for right movement
-                                    if (!topRect.intersects(mazeBox.getGlobalBounds())) {
-                                        ghost->moveUp = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 2: // for down movement
-                                    if (!bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                                        ghost->moveDown = true; 
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                            }
-                        }
-                        ghost->moveRight = false;
-                    }
-                    // if ghost is moving down wards and collision is detected below the ghost
-                    if (ghost->moveDown && bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                        collisionDetected = true; // since collision is detected, so we set it to true
-                        while (collisionDetected){
-                            int randomDirection = abs(rand() % 3); // we get random direction for our ghost
-                            // checking if that direction is available or not
-                            switch(randomDirection) {
-                                case 0: // for left movement
-                                    if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
-                                        ghost->moveLeft = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 1: // for right movement
-                                    if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
-                                        ghost->moveRight = true;
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                                case 2: // for down movement
-                                    if (!topRect.intersects(mazeBox.getGlobalBounds())) {
-                                        ghost->moveUp = true; 
-                                        collisionDetected = false; // collision detected is set to false
-                                    }
-                                break;
-                            }
-                        }
-                        ghost->moveDown = false;
-                    }
-                }
+    queue<Point> q;
+    q.push(start);
+    visited[start.row][start.col] = true;
+
+    while (!q.empty()) {
+        Point curr = q.front();
+        q.pop();
+
+        // Check if the current point is the target
+        if (curr.row == target.row && curr.col == target.col) {
+            ghost->ghostPath.clear();
+            while (!(curr.row == start.row && curr.col == start.col)) {
+                ghost->ghostPath.push_back(curr);
+                curr = parent[curr.row][curr.col];
+            }
+            ghost->ghostPath.push_back(start);
+            reverse(ghost->ghostPath.begin(), ghost->ghostPath.end());
+        }
+
+        // Possible directions: up, down, left, right
+        int dx[] = { -1, 1, 0, 0 };
+        int dy[] = { 0, 0, -1, 1 };
+
+        // Explore neighbors
+        for (int i = 0; i < 4; i++) {
+            int newX = curr.row + dx[i];
+            int newY = curr.col + dy[i];
+
+            if (isValid(newX, newY) && maze1[newX][newY] != 1 && !visited[newX][newY]) {
+                visited[newX][newY] = true;
+                parent[newX][newY] = curr;
+                q.push({ newX, newY });
             }
         }
     }
-    // Moving the ghost according to the position available
-    if (ghost->moveUp)
-        ghost->getSprite().move(0.0f, -1.0f - ghost->getSpeed());
-    else if (ghost->moveLeft)
-        ghost->getSprite().move(-1.0f - ghost->getSpeed(), 0.0f);
-    else if (ghost->moveRight)
-        ghost->getSprite().move(1.0f + ghost->getSpeed(), 0.0f);
-    else if (ghost->moveDown)
-        ghost->getSprite().move(0.0f, 1.0f + ghost->getSpeed());
-    return;
-}
-
-struct Cell {
-    int x, y; // Coordinates of the cell
-    int distance; // Distance from the starting cell
-    Cell(int x, int y, int distance) : x(x), y(y), distance(distance) {}
-};
-
-void MOVESEMIINTELLIGENTGHOST(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
-    if (!leftHome)
-        LEAVEHOME(collisionDetected, leftHome, ghost);
-    else {
-        srand(time(0));
-        // Getting the global bounds of the ghost
-        FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
-
-        // Defining collision rectangles for each side of the ghost
-        FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height);
-        FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height);
-        FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1);
-        FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1);
-
-        // cout << "Ghost hits at X: " << ghost->getSprite().getPosition().x - 100 << " and Y: " << ghost->getSprite().getPosition().y - 100 << endl;
-        // Check if the ghost has reached its target
-        if ((int)((ghost->getSprite().getPosition().x - 100) / CELLSIZE) == ghost->getTarget().first && (int)((ghost->getSprite().getPosition().y - 100) / CELLSIZE) == ghost->getTarget().second) {
-            // Update the ghost's target to a new random position
-            int newX, newY;
-            do {
-                newX = rand() % (gridCols - 1) + 1; // Exclude border cells (0th row and column)
-                newY = rand() % (gridRows - 1) + 1; // Exclude border cells (0th row and column)
-            } while(maze1[newY][newX] == 1); // Check if the new position is valid
-            ghost->setTarget(make_pair(newX, newY)); // setting new target for ghost
-            cout << "New target has X: " << newX << " and Y: " << newY << endl;
-        }
-
-        // getting current position of ghost
-        pair<int, int> currentPosition = make_pair((ghostBounds.left - 100) / CELLSIZE, (ghostBounds.top - 100) / CELLSIZE);
-
-        // checking the placement of target w.r.t current position
-        if (currentPosition.first < ghost->getTarget().first && currentPosition.second > ghost->getTarget().second) { // this means target is on the upper-right side
-            // we only have to move up or right
-            cout << "Top right" << endl;
-            if (maze1[currentPosition.second + 1][currentPosition.first] == 1) { // if there is a block on right side
-                ghost->moveUp = true; // we can only move upwards
-                ghost->moveDown = ghost->moveLeft = ghost->moveRight = false;
-            }
-            else if (maze1[currentPosition.second][currentPosition.first - 1] == 1) { // if there is a block on above
-                ghost->moveRight = true; // we can only move rightwards
-                ghost->moveDown = ghost->moveLeft = ghost->moveUp = false;
-            }
-        }
-        else if (currentPosition.first > ghost->getTarget().first && currentPosition.second > ghost->getTarget().second) { // this means target is on the upper-left side
-            // we only have to move up or left
-            cout << "Top left" << endl;
-            if (maze1[currentPosition.second - 1][currentPosition.first] == 1) { // if there is a block on left side
-                ghost->moveUp = true; // we can only move upwards
-                ghost->moveDown = ghost->moveLeft = ghost->moveRight = false;
-            }
-            else if (maze1[currentPosition.second][currentPosition.first - 1] == 1) { // if there is a block on above
-                ghost->moveLeft = true; // we can only move leftwards
-                ghost->moveDown = ghost->moveUp = ghost->moveRight = false;
-            }
-        }
-        else if (currentPosition.first < ghost->getTarget().first && currentPosition.second < ghost->getTarget().second) { // this means target is on the lower-right side
-            // we only have to move down or right
-            cout << "Bottom right" << endl;
-            if (maze1[currentPosition.second + 1][currentPosition.first] == 1) { // if there is a block on right side
-                ghost->moveDown = true; // we can only move downwards
-                ghost->moveUp = ghost->moveLeft = ghost->moveRight = false;
-            }
-            else if (maze1[currentPosition.second][currentPosition.first + 1] == 1) { // if there is a block below
-                ghost->moveRight = true; // we can only move rightwards
-                ghost->moveDown = ghost->moveLeft = ghost->moveUp = false;
-            }
-        }
-        else if (currentPosition.first > ghost->getTarget().first && currentPosition.second < ghost->getTarget().second) { // this means target is on the lower-left side
-            // we only have to move down or left
-            cout << "Bottom left" << endl;
-            if (maze1[currentPosition.second - 1][currentPosition.first] == 1) { // if there is a block on left side
-                ghost->moveDown = true; // we can only move downwards
-                ghost->moveUp = ghost->moveLeft = ghost->moveRight = false;
-            }
-            else if (maze1[currentPosition.second][currentPosition.first + 1] == 1) { // if there is a block below
-                ghost->moveLeft = true; // we can only move leftwards
-                ghost->moveDown = ghost->moveUp = ghost->moveRight = false;
-            }
-        }
-    }
-    // Moving the ghost according to the position available
-    if (ghost->moveUp)
-        ghost->getSprite().move(0.0f, -1.0f - ghost->getSpeed());
-    else if (ghost->moveLeft)
-        ghost->getSprite().move(-1.0f - ghost->getSpeed(), 0.0f);
-    else if (ghost->moveRight)
-        ghost->getSprite().move(1.0f + ghost->getSpeed(), 0.0f);
-    else if (ghost->moveDown)
-        ghost->getSprite().move(0.0f, 1.0f + ghost->getSpeed());
-    return;
-}
-
-void MOVEFULLYINTELLIGENTGHOST(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
-
+    return; // No path found
 }
 
 void *GHOSTTHREAD(void *arg) { // this is the ghost thread
     GHOST *ghost = (GHOST *) arg;
     bool collisionDetected = false; // boolean for collision detection
     bool leftHome = false;
+    bool foundPath = false;
     // initially only up ward movement is allowed because the ghost has to move up to come out of the home
 
     while (!threadExit) { // loop iterate until threadExit becomes true
-        if (currentGhostToLeave == ghost->getTurn() || leftHome) {
+        if (currentGhostToLeave == ghost->getID() || leftHome) {
             pthread_mutex_lock(&objectMovementSynchronisor);
+            if (ghost->getMode() == 0) { // this is for simple ghost
+                // MOVESIMPLEGHOST(collisionDetected, leftHome, ghost);
+                srand(time(0));
+                if (!leftHome)
+                    LEAVEHOME(collisionDetected, leftHome, ghost);
+                else {
+                    if (!foundPath) {
+                        pthread_mutex_lock(&pathFinder);
+                        vector<vector<int>> corners = {{1, 1}, {19, 1}, {1, 15}, {19, 15}};
+                        int newCorner = rand() % 4;
+                        ghost->setTarget(make_pair(corners[newCorner][0], corners[newCorner][1])); // setting new target for ghost
+                        Point ghostPosition, ghostTarget;
+                        ghostPosition.row = (ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = ghost->getTarget().second, ghostTarget.col = ghost->getTarget().first;
+                        GETPATHTOTARGET(ghost, ghostPosition, ghostTarget);
+                        foundPath = true;
+                        ghost->moveDown = ghost->moveUp = ghost->moveRight = ghost->moveLeft = false;
+                        pthread_mutex_unlock(&pathFinder);
+                    }
+                    else {
+                        RectangleShape tempTarget(Vector2f(50.0f, 50.0f));
+                        if (!ghost->moveDown && !ghost->moveUp && !ghost->moveRight && !ghost->moveLeft) {
+                            ghost->currentTarget++;
+                            int ghostPosX = (ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                            int ghostPosY = (ghost->getSprite().getPosition().y - 100) / CELLSIZE;
+                            if (ghostPosY < ghost->ghostPath[ghost->currentTarget].row) { // target is below
+                                ghost->moveDown = true;
+                                ghost->moveLeft = ghost->moveRight = ghost->moveUp = false;
+                            }
+                            else if (ghostPosY > ghost->ghostPath[ghost->currentTarget].row) { // target is above
+                                ghost->moveUp = true;
+                                ghost->moveLeft = ghost->moveRight = ghost->moveDown = false;
+                            }
+                            else if (ghostPosX < ghost->ghostPath[ghost->currentTarget].col) { // target is on the right side
+                                ghost->moveRight = true;
+                                ghost->moveDown = ghost->moveLeft = ghost->moveUp = false;
+                            }
+                            else if (ghostPosX > ghost->ghostPath[ghost->currentTarget].col) { // target is on the left side
+                                ghost->moveLeft = true;
+                                ghost->moveDown = ghost->moveRight = ghost->moveUp = false;
+                            }
+                        }
+                        tempTarget.setPosition(ghost->ghostPath[ghost->currentTarget].col * CELLSIZE + 100, ghost->ghostPath[ghost->currentTarget].row * CELLSIZE + 100);
+                        FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
+                        // Defining collision rectangles for each side of the ghost
+                        FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
+                        FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height); // getting right rect of ghost
+                        FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
+                        FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
 
-            if (ghost->getMode() == 0) // this is for simple ghost
-                MOVESIMPLEGHOST(collisionDetected, leftHome, ghost);
-            else if (ghost->getMode() == 1) // this is for a semi intelligent ghost
-                MOVESEMIINTELLIGENTGHOST(collisionDetected, leftHome, ghost);
-            else if (ghost->getMode() == 2) // this is for a fully intelligent ghost
-                MOVEFULLYINTELLIGENTGHOST(collisionDetected, leftHome, ghost);
+                        FloatRect tempTargetBounds = tempTarget.getGlobalBounds();
+                        // Defining collision rectangles for each side of the ghost
+                        FloatRect leftRectTG(tempTargetBounds.left - 1, tempTargetBounds.top, 1, tempTargetBounds.height); // getting left rect of ghost
+                        FloatRect rightRectTG(tempTargetBounds.left + tempTargetBounds.width, tempTargetBounds.top, 1, tempTargetBounds.height); // getting right rect of ghost
+                        FloatRect topRectTG(tempTargetBounds.left, tempTargetBounds.top - 1, tempTargetBounds.width, 1); // getting top rect of ghost
+                        FloatRect bottomRectTG(tempTargetBounds.left, tempTargetBounds.top + tempTargetBounds.height, tempTargetBounds.width, 1); // getting bottom rect of ghost
 
+                        if (ghost->moveUp && topRect.intersects(topRectTG)) {
+                            ghost->moveUp = false;
+                        }
+                        else if (ghost->moveLeft && leftRect.intersects(leftRectTG)) {
+                            ghost->moveLeft = false;
+                        }
+                        else if (ghost->moveRight && rightRect.intersects(rightRectTG)) {
+                            ghost->moveRight = false;
+                        }
+                        else if (ghost->moveDown && bottomRect.intersects(bottomRectTG)) {
+                            ghost->moveDown = false;
+                        }
+                        if (ghost->currentTarget == ghost->ghostPath.size()) {
+                            // cout << "Current Target length: " << ghost->currentTarget << endl << endl;
+                            ghost->currentTarget = 0;
+                            foundPath = false;
+                            ghost->moveDown = ghost->moveUp = ghost->moveRight = ghost->moveLeft = false;
+                        }
+                    }
+                }
+                // Moving the ghost according to the position available
+                if (ghost->moveUp)
+                    ghost->getSprite().move(0.0f, -1.0f - ghost->getSpeed());
+                else if (ghost->moveLeft)
+                    ghost->getSprite().move(-1.0f - ghost->getSpeed(), 0.0f);
+                else if (ghost->moveRight)
+                    ghost->getSprite().move(1.0f + ghost->getSpeed(), 0.0f);
+                else if (ghost->moveDown)
+                    ghost->getSprite().move(0.0f, 1.0f + ghost->getSpeed());
+            }
+            else if (ghost->getMode() == 1) { // this is for a semi intelligent ghost
+                srand(time(0));
+                if (!leftHome)
+                    LEAVEHOME(collisionDetected, leftHome, ghost);
+                else {
+                    if (!foundPath) {
+                        pthread_mutex_lock(&pathFinder);
+                        int newX, newY;
+                        do {
+                            newX = rand() % gridCols; // Exclude border cells (0th row and column)
+                            newY = rand() % gridRows; // Exclude border cells (0th row and column)
+                        } while(maze1[newY][newX] == 1 || newY == 0 || newX == 0); // Check if the new position is valid
+                        ghost->setTarget(make_pair(newX, newY)); // setting new target for ghost
+                        Point ghostPosition, ghostTarget;
+                        ghostPosition.row = (ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = ghost->getTarget().second, ghostTarget.col = ghost->getTarget().first;
+                        GETPATHTOTARGET(ghost, ghostPosition, ghostTarget);
+                        foundPath = true;
+                        ghost->moveDown = ghost->moveUp = ghost->moveRight = ghost->moveLeft = false;
+                        pthread_mutex_unlock(&pathFinder);
+                    }
+                    else {
+                        RectangleShape tempTarget(Vector2f(50.0f, 50.0f));
+                        if (!ghost->moveDown && !ghost->moveUp && !ghost->moveRight && !ghost->moveLeft) {
+                            ghost->currentTarget++;
+                            int ghostPosX = (ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                            int ghostPosY = (ghost->getSprite().getPosition().y - 100) / CELLSIZE;
+                            if (ghostPosY < ghost->ghostPath[ghost->currentTarget].row) { // target is below
+                                ghost->moveDown = true;
+                                ghost->moveLeft = ghost->moveRight = ghost->moveUp = false;
+                            }
+                            else if (ghostPosY > ghost->ghostPath[ghost->currentTarget].row) { // target is above
+                                ghost->moveUp = true;
+                                ghost->moveLeft = ghost->moveRight = ghost->moveDown = false;
+                            }
+                            else if (ghostPosX < ghost->ghostPath[ghost->currentTarget].col) { // target is on the right side
+                                ghost->moveRight = true;
+                                ghost->moveDown = ghost->moveLeft = ghost->moveUp = false;
+                            }
+                            else if (ghostPosX > ghost->ghostPath[ghost->currentTarget].col) { // target is on the left side
+                                ghost->moveLeft = true;
+                                ghost->moveDown = ghost->moveRight = ghost->moveUp = false;
+                            }
+                        }
+                        tempTarget.setPosition(ghost->ghostPath[ghost->currentTarget].col * CELLSIZE + 100, ghost->ghostPath[ghost->currentTarget].row * CELLSIZE + 100);
+                        FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
+                        // Defining collision rectangles for each side of the ghost
+                        FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
+                        FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height); // getting right rect of ghost
+                        FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
+                        FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
+
+                        FloatRect tempTargetBounds = tempTarget.getGlobalBounds();
+                        // Defining collision rectangles for each side of the ghost
+                        FloatRect leftRectTG(tempTargetBounds.left - 1, tempTargetBounds.top, 1, tempTargetBounds.height); // getting left rect of ghost
+                        FloatRect rightRectTG(tempTargetBounds.left + tempTargetBounds.width, tempTargetBounds.top, 1, tempTargetBounds.height); // getting right rect of ghost
+                        FloatRect topRectTG(tempTargetBounds.left, tempTargetBounds.top - 1, tempTargetBounds.width, 1); // getting top rect of ghost
+                        FloatRect bottomRectTG(tempTargetBounds.left, tempTargetBounds.top + tempTargetBounds.height, tempTargetBounds.width, 1); // getting bottom rect of ghost
+
+                        if (ghost->moveUp && topRect.intersects(topRectTG)) {
+                            ghost->moveUp = false;
+                        }
+                        else if (ghost->moveLeft && leftRect.intersects(leftRectTG)) {
+                            ghost->moveLeft = false;
+                        }
+                        else if (ghost->moveRight && rightRect.intersects(rightRectTG)) {
+                            ghost->moveRight = false;
+                        }
+                        else if (ghost->moveDown && bottomRect.intersects(bottomRectTG)) {
+                            ghost->moveDown = false;
+                        }
+                        if (ghost->currentTarget == ghost->ghostPath.size()) {
+                            // cout << "Current Target length: " << ghost->currentTarget << endl << endl;
+                            ghost->currentTarget = 0;
+                            foundPath = false;
+                            ghost->moveDown = ghost->moveUp = ghost->moveRight = ghost->moveLeft = false;
+                        }
+                    }
+                }
+                // Moving the ghost according to the position available
+                if (ghost->moveUp)
+                    ghost->getSprite().move(0.0f, -1.0f - ghost->getSpeed());
+                else if (ghost->moveLeft)
+                    ghost->getSprite().move(-1.0f - ghost->getSpeed(), 0.0f);
+                else if (ghost->moveRight)
+                    ghost->getSprite().move(1.0f + ghost->getSpeed(), 0.0f);
+                else if (ghost->moveDown)
+                    ghost->getSprite().move(0.0f, 1.0f + ghost->getSpeed());
+            }
+                // MOVESEMIINTELLIGENTGHOST(collisionDetected, foundPath, leftHome, ghost);
+            else if (ghost->getMode() == 2) { // this is for a fully intelligent ghost
+
+            }
             pthread_mutex_unlock(&objectMovementSynchronisor);
             sleep(milliseconds(5));
         }
@@ -564,26 +541,19 @@ void *GAMEINIT(void *arg) { // main game thread
     mazeBox.setTexture(box); // setting the Game Grid Sprite to maze texture
     mazeBox.scale(CELLSIZE, CELLSIZE); // scaling the sprite accoring to the cell size to fit in the screen
 
-    Texture redGhostTex;
-    redGhostTex.loadFromFile("sprites/redGhost.png"); // loading a red ghost png
-    GHOST redGhostObj(redGhostTex, 0, 0); // creating a ghost obj with (texture, startingNumber, mode)
-    redGhostObj.setSpeed(SPEEDBOOST);
+    Texture ghostTextures[5];
+    ghostTextures[0].loadFromFile("sprites/redGhost.png");
+    ghostTextures[1].loadFromFile("sprites/greenGhost.png");
+    ghostTextures[2].loadFromFile("sprites/yellowGhost.png");
+    ghostTextures[3].loadFromFile("sprites/pinkGhost.png");
+    ghostTextures[4].loadFromFile("sprites/blueGhost.png");
 
-    Texture greenGhostTex;
-    greenGhostTex.loadFromFile("sprites/greenGhost.png"); // loading a red ghost png
-    GHOST greenGhostObj(greenGhostTex, 1, 0); // creating a ghost obj with (texture, startingNumber, mode)
+    int initialTotalGhost = 2;
 
-    Texture yellowGhostTex;
-    yellowGhostTex.loadFromFile("sprites/yellowGhost.png"); // loading a red ghost png
-    GHOST yellowGhostObj(yellowGhostTex, 2, 0); // creating a ghost obj with (texture, startingNumber, mode)
-
-    Texture pinkGhostTex;
-    pinkGhostTex.loadFromFile("sprites/pinkGhost.png"); // loading a red ghost png
-    GHOST pinkGhostObj(pinkGhostTex, 3, 0); // creating a ghost obj with (texture, startingNumber, mode)
-
-    Texture blueGhostTex;
-    blueGhostTex.loadFromFile("sprites/blueGhost.png"); // loading a red ghost png
-    GHOST blueGhostObj(blueGhostTex, 4, 0); // creating a ghost obj with (texture, startingNumber, mode)
+    GHOST *ghosts[initialTotalGhost];
+    for (int i = 0; i < initialTotalGhost; i++) {
+        ghosts[i] = new GHOST(ghostTextures[i], i, rand() % 2);
+    }
 
     playerTexLeft.loadFromFile("sprites/mouthOpenLeft.png"); // loading left side player png
     playerTexRight.loadFromFile("sprites/mouthOpenRight.png"); // loading default player png
@@ -595,7 +565,7 @@ void *GAMEINIT(void *arg) { // main game thread
     playerTexUpClose.loadFromFile("sprites/upMouthClose.png"); // loading upwards player png
     playerTexDownClose.loadFromFile("sprites/downMouthClose.png"); // loading downwards player png
 
-    PLAYER playerObj(playerTexRight); // creating player obj
+    PLAYER playerObj(playerTexRight); // creating player obj,mkmlkjj
 
     //to display the string "Score" on the upper left corner
     Text displayScoreString;
@@ -617,17 +587,21 @@ void *GAMEINIT(void *arg) { // main game thread
     pthread_attr_t detachProp; // setting detachable property
     pthread_attr_init(&detachProp); // initializing that property
     pthread_attr_setdetachstate(&detachProp, PTHREAD_CREATE_DETACHED); // making it detachable
-    pthread_t ghostThread[4]; 
-    pthread_create(&ghostThread[0], &detachProp, GHOSTTHREAD, (void **) &redGhostObj); // creating a detachable ghost thread
-    pthread_create(&ghostThread[1], &detachProp, GHOSTTHREAD, (void **) &greenGhostObj); // creating a detachable ghost thread
-    pthread_create(&ghostThread[2], &detachProp, GHOSTTHREAD, (void **) &pinkGhostObj); // creating a detachable ghost thread
-    pthread_create(&ghostThread[3], &detachProp, GHOSTTHREAD, (void **) &yellowGhostObj); // creating a detachable ghost thread
+    pthread_t ghostThread[initialTotalGhost]; 
+    for (int i = 0; i < initialTotalGhost; i++) {
+        pthread_create(&ghostThread[i], &detachProp, GHOSTTHREAD, ghosts[i]); // creating a detachable ghost thread
+        totalThreads++;
+    }
 
     pthread_t playerThread; 
     pthread_create(&playerThread, &detachProp, PLAYERTHREAD, (void **) &playerObj); // creating a detachable player thread
+    totalThreads++;
     pthread_attr_destroy(&detachProp);
 
     bool mouthOpened = true;
+    Clock clock;
+    float changeMouthTimer = 0.2f;
+    clock.restart();
     while (gameWindow.isOpen()) {
         Event event;
     
@@ -635,7 +609,6 @@ void *GAMEINIT(void *arg) { // main game thread
             if (event.type == Event::Closed)
                 gameWindow.close();
         }
-
         // taking user input
         pthread_mutex_lock(&objectMovementSynchronisor);
         if(Keyboard::isKeyPressed(Keyboard::W) && playerObj.currentDir != 'W') {
@@ -655,45 +628,43 @@ void *GAMEINIT(void *arg) { // main game thread
             playerObj.currentDir = 'D';
         }
         pthread_mutex_unlock(&objectMovementSynchronisor);
-        // if(playerAte && mouthOpened){
-        //     if(playerObj.moveUp){
-        //         playerObj.changeTexture(playerTexUpClose);   
-        //     }
-        //     else if(playerObj.moveDown){
-        //         playerObj.changeTexture(playerTexDownClose);   
-        //     }
-        //     else if(playerObj.moveLeft){
-        //         playerObj.changeTexture(playerTexLeftClose);    
-        //     }
-        //     else if(playerObj.moveRight){
-        //         playerObj.changeTexture(playerTexRightClose);    
-        //     }
-        //     mouthOpened = false;
-        //     playerAte = false;
-        // }
-        // else if(playerAte && !mouthOpened){
-        //     if(playerObj.moveUp){
-        //         playerObj.changeTexture(playerTexUp);
-        //     }
-        //     else if(playerObj.moveDown){
-        //         playerObj.changeTexture(playerTexDown);
-        //     }
-        //     else if(playerObj.moveLeft){
-        //         playerObj.changeTexture(playerTexLeft);
-        //     }
-        //     else if(playerObj.moveRight){
-        //         playerObj.changeTexture(playerTexRight);
-        //     }
-        //     mouthOpened = true;
-        //     playerAte = false;
-        // }
+        if(clock.getElapsedTime().asSeconds() >= changeMouthTimer && mouthOpened){
+            if(playerObj.currentDir == 'W'){
+                playerObj.changeTexture(playerTexUpClose);   
+            }
+            else if(playerObj.currentDir == 'S'){
+                playerObj.changeTexture(playerTexDownClose);   
+            }
+            else if(playerObj.currentDir == 'A'){
+                playerObj.changeTexture(playerTexLeftClose);    
+            }
+            else if(playerObj.currentDir == 'D'){
+                playerObj.changeTexture(playerTexRightClose);    
+            }
+            mouthOpened = false;
+            clock.restart();
+        }
+        else if(clock.getElapsedTime().asSeconds() >= changeMouthTimer && !mouthOpened){
+            if(playerObj.currentDir == 'W'){
+                playerObj.changeTexture(playerTexUp);
+            }
+            else if(playerObj.currentDir == 'S'){
+                playerObj.changeTexture(playerTexDown);
+            }
+            else if(playerObj.currentDir == 'A'){
+                playerObj.changeTexture(playerTexLeft);
+            }
+            else if(playerObj.currentDir == 'D'){
+                playerObj.changeTexture(playerTexRight);
+            }
+            mouthOpened = true;
+            clock.restart();
+        }
         
         gameWindow.clear(); // clearing the buffer window
         DRAWMAZE(gameWindow, Food, mazeBox); // Drawing the maze with food and mazeBoxes
-        gameWindow.draw(redGhostObj.getSprite());
-        gameWindow.draw(greenGhostObj.getSprite());
-        gameWindow.draw(pinkGhostObj.getSprite());
-        gameWindow.draw(yellowGhostObj.getSprite());
+        for (int i = 0; i < initialTotalGhost; i++)
+            gameWindow.draw(ghosts[i]->getSprite());
         gameWindow.draw(playerObj.getSprite());
         gameWindow.draw(displayScoreString);
         displayScore.setString(to_string(playerObj.getScore())); //converting score to string so that it can be displayed
@@ -705,42 +676,6 @@ void *GAMEINIT(void *arg) { // main game thread
     exitedThread++;
     pthread_exit(NULL);
 }
-
-int getCurrentThreadCount() {
-    // Open a pipe to run the ps command
-    FILE* pipe = popen("ps -T | wc -l", "r");
-    if (!pipe) {
-        std::cerr << "Error: Unable to run ps command." << std::endl;
-        return -1;
-    }
-
-    // Read the output of the ps command
-    char buffer[128];
-    std::string result = "";
-    while (!feof(pipe)) {
-        if (fgets(buffer, 128, pipe) != nullptr)
-            result += buffer;
-    }
-
-    // Close the pipe
-    pclose(pipe);
-
-    // Convert the result to an integer
-    int threadCount = 0;
-    try {
-        threadCount = std::stoi(result);
-    } catch (const std::exception& e) {
-        std::cerr << "Error: Unable to convert ps output to integer." << std::endl;
-        return -1;
-    }
-
-    // int totalThreadCount = getCurrentThreadCount();
-    // cout << "Total threads: " << totalThreadCount << endl;
-
-    // Subtract 1 to exclude the header row from the count
-    return threadCount - 1;
-}
-
 
 int main()
 {
@@ -755,5 +690,6 @@ int main()
             break;
     }
     pthread_mutex_destroy(&objectMovementSynchronisor);
+    pthread_mutex_destroy(&pathFinder);
     return 0;
 }
