@@ -23,7 +23,7 @@ vector<vector<int>> maze1 = {
     {1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1},
-    {0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+    {2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2},
     {1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
@@ -159,6 +159,12 @@ void *PLAYERTHREAD(void *arg){
             player->getSprite().setPosition(PLAYERPOSX * CELLSIZE + 100, PLAYERPOSY * CELLSIZE + 100);
             playerAndGhostHaveCollided = false;
         }
+
+        if (player->getSprite().getPosition().x == -50) // if player moves out from left portal
+            player->getSprite().setPosition(GRIDWIDTH + 200, 500);
+        else if (player->getSprite().getPosition().x == GRIDWIDTH + 200) // if player moves out from right portal
+            player->getSprite().setPosition(-50, 500);
+
         FloatRect playerBounds = player->getSprite().getGlobalBounds();
         // Defining collision rectangles for each side of the player
         FloatRect leftRect(playerBounds.left - 1, playerBounds.top, 1, playerBounds.height); // getting left rect of player
@@ -212,6 +218,22 @@ void *PLAYERTHREAD(void *arg){
                 }
             }           
         }
+        // checking collisions with portals        
+        if (player->getSprite().getPosition().x <= 100) { // collision with left portal
+            if (player->currentDir == 'W' || player->currentDir == 'S') {
+                collisionDetected = true;
+                player->currentDir = player->prevDir;
+                player->prevDir = '-';
+            }
+        }
+        else if (player->getSprite().getPosition().x >= 1100) { // collision with left portal
+            if (player->currentDir == 'W' || player->currentDir == 'S') {
+                collisionDetected = true;
+                player->currentDir = player->prevDir;
+                player->prevDir = '-';
+            }
+        }
+
         if (!collisionDetected)
             player->prevDir = '-';
         // moving the player accordingly
@@ -653,6 +675,23 @@ void DRAWMAZE(RenderWindow &window, CircleShape food, Sprite mazeBox) { // this 
             }
         }
     }
+    // these are for the portals
+    mazeBox.setPosition(50, 450);
+    window.draw(mazeBox);
+    mazeBox.setPosition(0, 450);
+    window.draw(mazeBox);
+    mazeBox.setPosition(50, 550);
+    window.draw(mazeBox);
+    mazeBox.setPosition(0, 550);
+    window.draw(mazeBox);
+    mazeBox.setPosition(1150, 450);
+    window.draw(mazeBox);
+    mazeBox.setPosition(1200, 450);
+    window.draw(mazeBox);
+    mazeBox.setPosition(1150, 550);
+    window.draw(mazeBox);
+    mazeBox.setPosition(1200, 550);
+    window.draw(mazeBox);
     return;
 }
 
