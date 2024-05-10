@@ -15,27 +15,29 @@ using namespace sf;
 const int gridRows = GRIDHEIGHT / CELLSIZE;
 const int gridCols = GRIDWIDTH / CELLSIZE;
 vector<vector<int>> maze1 = {
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // 1 is for wall, 0 if for food and path
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1}, // 2 is for path only, and 3 is for speedboost
+    {1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1}, // 4 is for powerUp
     {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1},
-    {2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2},
+    {1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 2, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1},
+    {2, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 2},
     {1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
+    {1, 0, 1, 1, 3, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 };
 bool threadExit = false; // this is a boolean to close all detached threads when the game closes
 Sprite mazeBox; // creating a sprite for Game Grid
 Texture box; // creating a texture for maze.png
+Sprite boost;
+Sprite power;
 // these are open mouth textures
 Texture playerTexLeft;
 Texture playerTexRight;
@@ -51,6 +53,8 @@ CircleShape Food(5.0f);
 RectangleShape intelligentGhostTarget(Vector2f(50.0f, 50.0f));
 pthread_mutex_t objectMovementSynchronisor;
 pthread_mutex_t pathFinder;
+pthread_mutex_t pathIlluminator;
+pthread_mutex_t ghostMover;
 int PlayerX = 1;
 int PlayerY = 15;
 int totalThreads = 1;
@@ -58,6 +62,7 @@ int exitedThread = 0;
 int currentGhostToLeave = 0;
 #define SPEEDBOOST 0.2f
 bool playerAndGhostHaveCollided = false;
+
 
 struct Point {
     int row, col;
@@ -78,6 +83,7 @@ public:
     bool moveDown = false; // boolean for down movement
     vector<Point> ghostPath;
     int currentTarget = 0;
+    bool ghostCanMove = true;
 
     GHOST(Texture &text, int t, int m = 0, float sp = 0) { // Constructor
         this->sprite.setTexture(text);
@@ -142,13 +148,25 @@ public:
     void setScore(int Score) { this->score = Score; }
 };
 
-struct GHOSTARGS {
+struct EATABLES {
+    vector<Sprite> powerUp;
+    int powerUpTotalCount = 0;
+    int powerUpCurrCount = 0;
+    vector<Sprite> ghostBooster;
+    int ghostBoosterTotalCount = 0;
+    int ghostBoosterCurrCount = 0;
+};
+
+struct PLAYERARGS {
     PLAYER *player;
+};
+
+struct GHOSTARGS {
     GHOST *ghost;
 };
 
 void *PLAYERTHREAD(void *arg){
-    PLAYER *player = (PLAYER*) arg;
+    PLAYERARGS *playerArgs = (PLAYERARGS*) arg;
     
     bool collisionDetected = false; // boolean for collision detection
 
@@ -156,16 +174,16 @@ void *PLAYERTHREAD(void *arg){
         collisionDetected = false;
         pthread_mutex_lock(&objectMovementSynchronisor);
         if (playerAndGhostHaveCollided) {
-            player->getSprite().setPosition(PLAYERPOSX * CELLSIZE + 100, PLAYERPOSY * CELLSIZE + 100);
+            playerArgs->player->getSprite().setPosition(PLAYERPOSX * CELLSIZE + 100, PLAYERPOSY * CELLSIZE + 100);
             playerAndGhostHaveCollided = false;
         }
 
-        if (player->getSprite().getPosition().x == -50) // if player moves out from left portal
-            player->getSprite().setPosition(GRIDWIDTH + 200, 500);
-        else if (player->getSprite().getPosition().x == GRIDWIDTH + 200) // if player moves out from right portal
-            player->getSprite().setPosition(-50, 500);
+        if (playerArgs->player->getSprite().getPosition().x == -50) // if player moves out from left portal
+            playerArgs->player->getSprite().setPosition(GRIDWIDTH + 200, 500);
+        else if (playerArgs->player->getSprite().getPosition().x == GRIDWIDTH + 200) // if player moves out from right portal
+            playerArgs->player->getSprite().setPosition(-50, 500);
 
-        FloatRect playerBounds = player->getSprite().getGlobalBounds();
+        FloatRect playerBounds = playerArgs->player->getSprite().getGlobalBounds();
         // Defining collision rectangles for each side of the player
         FloatRect leftRect(playerBounds.left - 1, playerBounds.top, 1, playerBounds.height); // getting left rect of player
         FloatRect rightRect(playerBounds.left + playerBounds.width, playerBounds.top, 1, playerBounds.height); // getting right rect of player
@@ -177,31 +195,31 @@ void *PLAYERTHREAD(void *arg){
             for(int j = 0; j < gridCols; j++){
                 if (maze1[i][j] == 1) { // checking if maze can be placed here or not
                     mazeBox.setPosition(j * CELLSIZE + 100, i * CELLSIZE + 100); // placing temporary mazeBox at current location
-                    if (player->currentDir == 'W'){ // if player is moving rightwards and it collides with walls 
+                    if (playerArgs->player->currentDir == 'W'){ // if player is moving rightwards and it collides with walls 
                         if (topRect.intersects(mazeBox.getGlobalBounds())) {
-                            player->currentDir = player->prevDir;
-                            player->prevDir = '-';
+                            playerArgs->player->currentDir = playerArgs->player->prevDir;
+                            playerArgs->player->prevDir = '-';
                             collisionDetected = true;
                         }
                     }
-                    else if(player->currentDir == 'S'){ // if player is moving downwards and it collides with walls
+                    else if(playerArgs->player->currentDir == 'S'){ // if player is moving downwards and it collides with walls
                         if (bottomRect.intersects(mazeBox.getGlobalBounds())) {
-                            player->currentDir = player->prevDir;
-                            player->prevDir = '-';
+                            playerArgs->player->currentDir = playerArgs->player->prevDir;
+                            playerArgs->player->prevDir = '-';
                             collisionDetected = true;
                         }
                     }
-                    else if(player->currentDir == 'A'){ // if player is moving leftwards and it collides with walls
+                    else if(playerArgs->player->currentDir == 'A'){ // if player is moving leftwards and it collides with walls
                         if (leftRect.intersects(mazeBox.getGlobalBounds())) {
-                            player->currentDir = player->prevDir;
-                            player->prevDir = '-';
+                            playerArgs->player->currentDir = playerArgs->player->prevDir;
+                            playerArgs->player->prevDir = '-';
                             collisionDetected = true;
                         }
                     }
-                    else if(player->currentDir == 'D'){ // if player is moving upwards and it collides with walls
+                    else if(playerArgs->player->currentDir == 'D'){ // if player is moving upwards and it collides with walls
                         if (rightRect.intersects(mazeBox.getGlobalBounds())) {
-                            player->currentDir = player->prevDir;
-                            player->prevDir = '-';
+                            playerArgs->player->currentDir = playerArgs->player->prevDir;
+                            playerArgs->player->prevDir = '-';
                             collisionDetected = true;
                         }   
                     }
@@ -212,58 +230,58 @@ void *PLAYERTHREAD(void *arg){
                     FloatRect FoodBounds = Food.getGlobalBounds();
                     if(playerBounds.intersects(FoodBounds)){
                         maze1[i][j] = -99;
-                        int score = player->getScore();
-                        player->setScore(score += 1); //increasing score as the player eats food
+                        int score = playerArgs->player->getScore();
+                        playerArgs->player->setScore(score += 1); //increasing score as the player eats food
                     }
                 }
             }           
         }
         // checking collisions with portals        
-        if (player->getSprite().getPosition().x <= 100) { // collision with left portal
-            if (player->currentDir == 'W' || player->currentDir == 'S') {
+        if (playerArgs->player->getSprite().getPosition().x <= 100) { // collision with left portal
+            if (playerArgs->player->currentDir == 'W' || playerArgs->player->currentDir == 'S') {
                 collisionDetected = true;
-                player->currentDir = player->prevDir;
-                player->prevDir = '-';
+                playerArgs->player->currentDir = playerArgs->player->prevDir;
+                playerArgs->player->prevDir = '-';
             }
         }
-        else if (player->getSprite().getPosition().x >= 1100) { // collision with left portal
-            if (player->currentDir == 'W' || player->currentDir == 'S') {
+        else if (playerArgs->player->getSprite().getPosition().x >= 1100) { // collision with left portal
+            if (playerArgs->player->currentDir == 'W' || playerArgs->player->currentDir == 'S') {
                 collisionDetected = true;
-                player->currentDir = player->prevDir;
-                player->prevDir = '-';
+                playerArgs->player->currentDir = playerArgs->player->prevDir;
+                playerArgs->player->prevDir = '-';
             }
         }
 
         if (!collisionDetected)
-            player->prevDir = '-';
+            playerArgs->player->prevDir = '-';
         // moving the player accordingly
-        if (player->currentDir == 'W') {
-            player->getSprite().move(0.0f, -1.0f);
-            PlayerX = (player->getSprite().getPosition().x - 100) / CELLSIZE;
-            PlayerY = (player->getSprite().getPosition().y - 150) / CELLSIZE;
+        if (playerArgs->player->currentDir == 'W') {
+            playerArgs->player->getSprite().move(0.0f, -1.0f);
+            PlayerX = (playerArgs->player->getSprite().getPosition().x - 100) / CELLSIZE;
+            PlayerY = (playerArgs->player->getSprite().getPosition().y - 150) / CELLSIZE;
             PlayerY == 0 ? PlayerY = 1 : PlayerY = PlayerY;
-            intelligentGhostTarget.setPosition(player->getSprite().getPosition().x, player->getSprite().getPosition().y);
+            intelligentGhostTarget.setPosition(playerArgs->player->getSprite().getPosition().x, playerArgs->player->getSprite().getPosition().y);
         }
-        else if (player->currentDir == 'A') {
-            player->getSprite().move(-1.0f, 0.0f);
-            PlayerX = (player->getSprite().getPosition().x - 150) / CELLSIZE;
-            PlayerY = (player->getSprite().getPosition().y - 100) / CELLSIZE;
+        else if (playerArgs->player->currentDir == 'A') {
+            playerArgs->player->getSprite().move(-1.0f, 0.0f);
+            PlayerX = (playerArgs->player->getSprite().getPosition().x - 150) / CELLSIZE;
+            PlayerY = (playerArgs->player->getSprite().getPosition().y - 100) / CELLSIZE;
             PlayerX == 0 ? PlayerX = 1 : PlayerX = PlayerX;
-            intelligentGhostTarget.setPosition(player->getSprite().getPosition().x, player->getSprite().getPosition().y);
+            intelligentGhostTarget.setPosition(playerArgs->player->getSprite().getPosition().x, playerArgs->player->getSprite().getPosition().y);
         }
-        else if (player->currentDir == 'D') {
-            player->getSprite().move(1.0f, 0.0f);
-            PlayerX = (player->getSprite().getPosition().x - 50) / CELLSIZE;
-            PlayerY = (player->getSprite().getPosition().y - 100) / CELLSIZE;
+        else if (playerArgs->player->currentDir == 'D') {
+            playerArgs->player->getSprite().move(1.0f, 0.0f);
+            PlayerX = (playerArgs->player->getSprite().getPosition().x - 50) / CELLSIZE;
+            PlayerY = (playerArgs->player->getSprite().getPosition().y - 100) / CELLSIZE;
             PlayerX == 20 ? PlayerX = 19 : PlayerX = PlayerX;
-            intelligentGhostTarget.setPosition(player->getSprite().getPosition().x, player->getSprite().getPosition().y);
+            intelligentGhostTarget.setPosition(playerArgs->player->getSprite().getPosition().x, playerArgs->player->getSprite().getPosition().y);
         }
-        else if (player->currentDir == 'S') {
-            player->getSprite().move(0.0f, 1.0f);
-            PlayerX = (player->getSprite().getPosition().x - 100) / CELLSIZE;
-            PlayerY = (player->getSprite().getPosition().y - 50) / CELLSIZE;
+        else if (playerArgs->player->currentDir == 'S') {
+            playerArgs->player->getSprite().move(0.0f, 1.0f);
+            PlayerX = (playerArgs->player->getSprite().getPosition().x - 100) / CELLSIZE;
+            PlayerY = (playerArgs->player->getSprite().getPosition().y - 50) / CELLSIZE;
             PlayerY == 16 ? PlayerY = 15 : PlayerY = PlayerY;
-            intelligentGhostTarget.setPosition(player->getSprite().getPosition().x, player->getSprite().getPosition().y);
+            intelligentGhostTarget.setPosition(playerArgs->player->getSprite().getPosition().x, playerArgs->player->getSprite().getPosition().y);
         }
         pthread_mutex_unlock(&objectMovementSynchronisor);
         sleep(milliseconds(5));
@@ -365,294 +383,161 @@ void GETPATHTOTARGET(GHOST *ghost, Point start, Point target) {
             }
         }
     }
-    return; // No path found
+}
+
+void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath) {
+    int ghostPosX = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+    int ghostPosY = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE;
+    RectangleShape tempTarget(Vector2f(50.0f, 50.0f));
+    if (ghostArgs->ghost->ghostCanMove == false) {
+        ghostArgs->ghost->currentTarget++;
+        if (ghostPosY < ghostArgs->ghost->ghostPath[ghostArgs->ghost->currentTarget].row) { // target is below
+            ghostArgs->ghost->moveDown = true;
+            ghostArgs->ghost->moveLeft = ghostArgs->ghost->moveRight = ghostArgs->ghost->moveUp = false;
+        }
+        else if (ghostPosY > ghostArgs->ghost->ghostPath[ghostArgs->ghost->currentTarget].row) { // target is above
+            ghostArgs->ghost->moveUp = true;
+            ghostArgs->ghost->moveLeft = ghostArgs->ghost->moveRight = ghostArgs->ghost->moveDown = false;
+        }
+        else if (ghostPosX < ghostArgs->ghost->ghostPath[ghostArgs->ghost->currentTarget].col) { // target is on the right side
+            ghostArgs->ghost->moveRight = true;
+            ghostArgs->ghost->moveDown = ghostArgs->ghost->moveLeft = ghostArgs->ghost->moveUp = false;
+        }
+        else if (ghostPosX > ghostArgs->ghost->ghostPath[ghostArgs->ghost->currentTarget].col) { // target is on the left side
+            ghostArgs->ghost->moveLeft = true;
+            ghostArgs->ghost->moveDown = ghostArgs->ghost->moveRight = ghostArgs->ghost->moveUp = false;
+        }
+        ghostArgs->ghost->ghostCanMove = true;
+    }
+    tempTarget.setPosition(ghostArgs->ghost->ghostPath[ghostArgs->ghost->currentTarget].col * CELLSIZE + 100, ghostArgs->ghost->ghostPath[ghostArgs->ghost->currentTarget].row * CELLSIZE + 100);
+    FloatRect ghostBounds = ghostArgs->ghost->getSprite().getGlobalBounds();
+    // Defining collision rectangles for each side of the ghost
+    FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
+    FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height); // getting right rect of ghost
+    FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
+    FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
+
+    FloatRect tempTargetBounds = tempTarget.getGlobalBounds();
+    // Defining collision rectangles for each side of the ghost
+    FloatRect leftRectTG(tempTargetBounds.left - 1, tempTargetBounds.top, 1, tempTargetBounds.height); // getting left rect of ghost
+    FloatRect rightRectTG(tempTargetBounds.left + tempTargetBounds.width, tempTargetBounds.top, 1, tempTargetBounds.height); // getting right rect of ghost
+    FloatRect topRectTG(tempTargetBounds.left, tempTargetBounds.top - 1, tempTargetBounds.width, 1); // getting top rect of ghost
+    FloatRect bottomRectTG(tempTargetBounds.left, tempTargetBounds.top + tempTargetBounds.height, tempTargetBounds.width, 1); // getting bottom rect of ghost
+
+    if (ghostArgs->ghost->moveUp && topRect.top <= topRectTG.top) {
+        ghostArgs->ghost->ghostCanMove = false;
+    }
+    else if (ghostArgs->ghost->moveLeft && leftRect.left <= leftRectTG.left) {
+        ghostArgs->ghost->ghostCanMove = false;
+    }
+    else if (ghostArgs->ghost->moveRight && (rightRect.left + rightRect.width) >= (rightRectTG.left + rightRectTG.width)) {
+        ghostArgs->ghost->ghostCanMove = false;
+    }
+    else if (ghostArgs->ghost->moveDown && (bottomRect.top + bottomRect.height) >= (bottomRectTG.top + bottomRectTG.height)) {
+        ghostArgs->ghost->ghostCanMove = false;
+    }
+    if (ghostArgs->ghost->currentTarget == ghostArgs->ghost->ghostPath.size()) {
+        ghostArgs->ghost->currentTarget = 0;
+        foundPath = false;
+        ghostArgs->ghost->ghostCanMove = false;
+    }
+    if (ghostBounds.intersects(intelligentGhostTarget.getGlobalBounds())) {
+        playerAndGhostHaveCollided = true;
+    }
+}
+
+void MOVETHEGHOST (GHOSTARGS *ghostArgs) {
+    // Moving the ghost according to the position available
+    if (ghostArgs->ghost->ghostCanMove) {
+        if (ghostArgs->ghost->moveUp)
+            ghostArgs->ghost->getSprite().move(0.0f, -1.0f - ghostArgs->ghost->getSpeed());
+        else if (ghostArgs->ghost->moveLeft)
+            ghostArgs->ghost->getSprite().move(-1.0f - ghostArgs->ghost->getSpeed(), 0.0f);
+        else if (ghostArgs->ghost->moveRight)
+            ghostArgs->ghost->getSprite().move(1.0f + ghostArgs->ghost->getSpeed(), 0.0f);
+        else if (ghostArgs->ghost->moveDown)
+            ghostArgs->ghost->getSprite().move(0.0f, 1.0f + ghostArgs->ghost->getSpeed());
+    }
 }
 
 void *GHOSTTHREAD(void *arg) { // this is the ghost thread
-    GHOST *ghost = (GHOST *) arg;
+    GHOSTARGS *ghostArgs = (GHOSTARGS *) arg;
     bool collisionDetected = false; // boolean for collision detection
     bool leftHome = false;
     bool foundPath = false;
     // initially only up ward movement is allowed because the ghost has to move up to come out of the home
     Clock clock;
-    float elapsedTime = 0, pathFindingInterval = 300;
+    float elapsedTime = 0, pathFindingInterval = 400;
     clock.restart();
     while (!threadExit) { // loop iterate until threadExit becomes true
-        if (currentGhostToLeave == ghost->getID() || leftHome) {
+        if (currentGhostToLeave == ghostArgs->ghost->getID() || leftHome) {
             pthread_mutex_lock(&objectMovementSynchronisor);
-            if (ghost->getMode() == 0) { // this is for simple ghost
-                // MOVESIMPLEGHOST(collisionDetected, leftHome, ghost);
-                srand(time(0));
+            if (ghostArgs->ghost->getMode() == 0) { // this is for simple ghost
+                srand(time(0) ^ pthread_self());
                 if (!leftHome)
-                    LEAVEHOME(collisionDetected, leftHome, ghost);
+                    LEAVEHOME(collisionDetected, leftHome, ghostArgs->ghost);
                 else {
                     if (!foundPath) {
-                        pthread_mutex_lock(&pathFinder);
                         vector<vector<int>> corners = {{1, 1}, {19, 1}, {1, 15}, {19, 15}};
                         int newCorner = rand() % 4;
-                        ghost->setTarget(make_pair(corners[newCorner][0], corners[newCorner][1])); // setting new target for ghost
                         Point ghostPosition, ghostTarget;
-                        ghostPosition.row = (ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghost->getSprite().getPosition().x - 100) / CELLSIZE;
-                        ghostTarget.row = ghost->getTarget().second, ghostTarget.col = ghost->getTarget().first;
-                        GETPATHTOTARGET(ghost, ghostPosition, ghostTarget);
+                        ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = corners[newCorner][1], ghostTarget.col = corners[newCorner][0];
+                        GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
                         foundPath = true;
-                        ghost->moveDown = ghost->moveUp = ghost->moveRight = ghost->moveLeft = false;
-                        pthread_mutex_unlock(&pathFinder);
+                        ghostArgs->ghost->ghostCanMove = false;
                     }
-                    else {
-                        RectangleShape tempTarget(Vector2f(50.0f, 50.0f));
-                        if (!ghost->moveDown && !ghost->moveUp && !ghost->moveRight && !ghost->moveLeft) {
-                            ghost->currentTarget++;
-                            int ghostPosX = (ghost->getSprite().getPosition().x - 100) / CELLSIZE;
-                            int ghostPosY = (ghost->getSprite().getPosition().y - 100) / CELLSIZE;
-                            if (ghostPosY < ghost->ghostPath[ghost->currentTarget].row) { // target is below
-                                ghost->moveDown = true;
-                                ghost->moveLeft = ghost->moveRight = ghost->moveUp = false;
-                            }
-                            else if (ghostPosY > ghost->ghostPath[ghost->currentTarget].row) { // target is above
-                                ghost->moveUp = true;
-                                ghost->moveLeft = ghost->moveRight = ghost->moveDown = false;
-                            }
-                            else if (ghostPosX < ghost->ghostPath[ghost->currentTarget].col) { // target is on the right side
-                                ghost->moveRight = true;
-                                ghost->moveDown = ghost->moveLeft = ghost->moveUp = false;
-                            }
-                            else if (ghostPosX > ghost->ghostPath[ghost->currentTarget].col) { // target is on the left side
-                                ghost->moveLeft = true;
-                                ghost->moveDown = ghost->moveRight = ghost->moveUp = false;
-                            }
-                        }
-                        tempTarget.setPosition(ghost->ghostPath[ghost->currentTarget].col * CELLSIZE + 100, ghost->ghostPath[ghost->currentTarget].row * CELLSIZE + 100);
-                        FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
-                        // Defining collision rectangles for each side of the ghost
-                        FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
-                        FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height); // getting right rect of ghost
-                        FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
-                        FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
-
-                        FloatRect tempTargetBounds = tempTarget.getGlobalBounds();
-                        // Defining collision rectangles for each side of the ghost
-                        FloatRect leftRectTG(tempTargetBounds.left - 1, tempTargetBounds.top, 1, tempTargetBounds.height); // getting left rect of ghost
-                        FloatRect rightRectTG(tempTargetBounds.left + tempTargetBounds.width, tempTargetBounds.top, 1, tempTargetBounds.height); // getting right rect of ghost
-                        FloatRect topRectTG(tempTargetBounds.left, tempTargetBounds.top - 1, tempTargetBounds.width, 1); // getting top rect of ghost
-                        FloatRect bottomRectTG(tempTargetBounds.left, tempTargetBounds.top + tempTargetBounds.height, tempTargetBounds.width, 1); // getting bottom rect of ghost
-
-                        if (ghost->moveUp && topRect.intersects(topRectTG)) {
-                            ghost->moveUp = false;
-                        }
-                        else if (ghost->moveLeft && leftRect.intersects(leftRectTG)) {
-                            ghost->moveLeft = false;
-                        }
-                        else if (ghost->moveRight && rightRect.intersects(rightRectTG)) {
-                            ghost->moveRight = false;
-                        }
-                        else if (ghost->moveDown && bottomRect.intersects(bottomRectTG)) {
-                            ghost->moveDown = false;
-                        }
-                        if (ghost->currentTarget == ghost->ghostPath.size()) {
-                            // cout << "Current Target length: " << ghost->currentTarget << endl << endl;
-                            ghost->currentTarget = 0;
-                            foundPath = false;
-                            ghost->moveDown = ghost->moveUp = ghost->moveRight = ghost->moveLeft = false;
-                        }
-                        if (ghostBounds.intersects(intelligentGhostTarget.getGlobalBounds())) {
-                            cout << "Collision detected" << endl << endl;
-                            playerAndGhostHaveCollided = true;
-                        }
-                    }
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath);
                 }
-                // Moving the ghost according to the position available
-                if (ghost->moveUp)
-                    ghost->getSprite().move(0.0f, -1.0f - ghost->getSpeed());
-                else if (ghost->moveLeft)
-                    ghost->getSprite().move(-1.0f - ghost->getSpeed(), 0.0f);
-                else if (ghost->moveRight)
-                    ghost->getSprite().move(1.0f + ghost->getSpeed(), 0.0f);
-                else if (ghost->moveDown)
-                    ghost->getSprite().move(0.0f, 1.0f + ghost->getSpeed());
+                MOVETHEGHOST(ghostArgs);
             }
-            else if (ghost->getMode() == 1) { // this is for a semi intelligent ghost
-                srand(time(0));
+            else if (ghostArgs->ghost->getMode() == 1) { // this is for a semi intelligent ghost
+                srand(time(0) ^ pthread_self());
                 if (!leftHome)
-                    LEAVEHOME(collisionDetected, leftHome, ghost);
+                    LEAVEHOME(collisionDetected, leftHome, ghostArgs->ghost);
                 else {
                     if (!foundPath) {
-                        pthread_mutex_lock(&pathFinder);
+                        srand(time(0));
                         int newX, newY;
                         do {
                             newX = rand() % gridCols; // Exclude border cells (0th row and column)
                             newY = rand() % gridRows; // Exclude border cells (0th row and column)
                         } while(maze1[newY][newX] == 1 || newY == 0 || newX == 0); // Check if the new position is valid
-                        ghost->setTarget(make_pair(newX, newY)); // setting new target for ghost
                         Point ghostPosition, ghostTarget;
-                        ghostPosition.row = (ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghost->getSprite().getPosition().x - 100) / CELLSIZE;
-                        ghostTarget.row = ghost->getTarget().second, ghostTarget.col = ghost->getTarget().first;
-                        GETPATHTOTARGET(ghost, ghostPosition, ghostTarget);
+                        ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = newY, ghostTarget.col = newX;
+                        GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
                         foundPath = true;
-                        ghost->moveDown = ghost->moveUp = ghost->moveRight = ghost->moveLeft = false;
-                        pthread_mutex_unlock(&pathFinder);
+                        ghostArgs->ghost->ghostCanMove = false;
                     }
-                    else {
-                        RectangleShape tempTarget(Vector2f(50.0f, 50.0f));
-                        if (!ghost->moveDown && !ghost->moveUp && !ghost->moveRight && !ghost->moveLeft) {
-                            ghost->currentTarget++;
-                            int ghostPosX = (ghost->getSprite().getPosition().x - 100) / CELLSIZE;
-                            int ghostPosY = (ghost->getSprite().getPosition().y - 100) / CELLSIZE;
-                            if (ghostPosY < ghost->ghostPath[ghost->currentTarget].row) { // target is below
-                                ghost->moveDown = true;
-                                ghost->moveLeft = ghost->moveRight = ghost->moveUp = false;
-                            }
-                            else if (ghostPosY > ghost->ghostPath[ghost->currentTarget].row) { // target is above
-                                ghost->moveUp = true;
-                                ghost->moveLeft = ghost->moveRight = ghost->moveDown = false;
-                            }
-                            else if (ghostPosX < ghost->ghostPath[ghost->currentTarget].col) { // target is on the right side
-                                ghost->moveRight = true;
-                                ghost->moveDown = ghost->moveLeft = ghost->moveUp = false;
-                            }
-                            else if (ghostPosX > ghost->ghostPath[ghost->currentTarget].col) { // target is on the left side
-                                ghost->moveLeft = true;
-                                ghost->moveDown = ghost->moveRight = ghost->moveUp = false;
-                            }
-                        }
-                        tempTarget.setPosition(ghost->ghostPath[ghost->currentTarget].col * CELLSIZE + 100, ghost->ghostPath[ghost->currentTarget].row * CELLSIZE + 100);
-                        FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
-                        // Defining collision rectangles for each side of the ghost
-                        FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
-                        FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height); // getting right rect of ghost
-                        FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
-                        FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
-
-                        FloatRect tempTargetBounds = tempTarget.getGlobalBounds();
-                        // Defining collision rectangles for each side of the ghost
-                        FloatRect leftRectTG(tempTargetBounds.left - 1, tempTargetBounds.top, 1, tempTargetBounds.height); // getting left rect of ghost
-                        FloatRect rightRectTG(tempTargetBounds.left + tempTargetBounds.width, tempTargetBounds.top, 1, tempTargetBounds.height); // getting right rect of ghost
-                        FloatRect topRectTG(tempTargetBounds.left, tempTargetBounds.top - 1, tempTargetBounds.width, 1); // getting top rect of ghost
-                        FloatRect bottomRectTG(tempTargetBounds.left, tempTargetBounds.top + tempTargetBounds.height, tempTargetBounds.width, 1); // getting bottom rect of ghost
-
-                        if (ghost->moveUp && topRect.intersects(topRectTG)) {
-                            ghost->moveUp = false;
-                        }
-                        else if (ghost->moveLeft && leftRect.intersects(leftRectTG)) {
-                            ghost->moveLeft = false;
-                        }
-                        else if (ghost->moveRight && rightRect.intersects(rightRectTG)) {
-                            ghost->moveRight = false;
-                        }
-                        else if (ghost->moveDown && bottomRect.intersects(bottomRectTG)) {
-                            ghost->moveDown = false;
-                        }
-                        if (ghost->currentTarget == ghost->ghostPath.size()) {
-                            // cout << "Current Target length: " << ghost->currentTarget << endl << endl;
-                            ghost->currentTarget = 0;
-                            foundPath = false;
-                            ghost->moveDown = ghost->moveUp = ghost->moveRight = ghost->moveLeft = false;
-                        }
-                        if (ghostBounds.intersects(intelligentGhostTarget.getGlobalBounds())) {
-                            cout << "Collision detected" << endl << endl;
-                            playerAndGhostHaveCollided = true;
-                        }
-                    }
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath);
                 }
-                // Moving the ghost according to the position available
-                if (ghost->moveUp)
-                    ghost->getSprite().move(0.0f, -1.0f - ghost->getSpeed());
-                else if (ghost->moveLeft)
-                    ghost->getSprite().move(-1.0f - ghost->getSpeed(), 0.0f);
-                else if (ghost->moveRight)
-                    ghost->getSprite().move(1.0f + ghost->getSpeed(), 0.0f);
-                else if (ghost->moveDown)
-                    ghost->getSprite().move(0.0f, 1.0f + ghost->getSpeed());
+                MOVETHEGHOST(ghostArgs);
             }
-            else if (ghost->getMode() == 2) { // this is for a fully intelligent ghost
+            else if (ghostArgs->ghost->getMode() == 2) { // this is for a fully intelligent ghost
                 elapsedTime += clock.getElapsedTime().asSeconds();
-                srand(time(0));
                 if (!leftHome)
-                    LEAVEHOME(collisionDetected, leftHome, ghost);
+                    LEAVEHOME(collisionDetected, leftHome, ghostArgs->ghost);
                 else {
                     if (!foundPath) {
-                        pthread_mutex_lock(&pathFinder);
-                        ghost->setTarget(make_pair(PlayerX, PlayerY)); // setting new target for ghost
+                        ghostArgs->ghost->setTarget(make_pair(PlayerX, PlayerY)); // setting new target for ghost
                         Point ghostPosition, ghostTarget;
-                        ghostPosition.row = (ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghost->getSprite().getPosition().x - 100) / CELLSIZE;
-                        ghostTarget.row = ghost->getTarget().second, ghostTarget.col = ghost->getTarget().first;
-                        GETPATHTOTARGET(ghost, ghostPosition, ghostTarget);
+                        ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = PlayerY, ghostTarget.col = PlayerX;
+                        GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
                         foundPath = true;
-                        ghost->moveDown = ghost->moveUp = ghost->moveRight = ghost->moveLeft = false;
-                        pthread_mutex_unlock(&pathFinder);
+                        ghostArgs->ghost->ghostCanMove = false;
                     }
-                    else {
-                        RectangleShape tempTarget(Vector2f(50.0f, 50.0f));
-                        if (!ghost->moveDown && !ghost->moveUp && !ghost->moveRight && !ghost->moveLeft) {
-                            ghost->currentTarget++;
-                            int ghostPosX = (ghost->getSprite().getPosition().x - 100) / CELLSIZE;
-                            int ghostPosY = (ghost->getSprite().getPosition().y - 100) / CELLSIZE;
-                            if (ghostPosY < ghost->ghostPath[ghost->currentTarget].row) { // target is below
-                                ghost->moveDown = true;
-                                ghost->moveLeft = ghost->moveRight = ghost->moveUp = false;
-                            }
-                            else if (ghostPosY > ghost->ghostPath[ghost->currentTarget].row) { // target is above
-                                ghost->moveUp = true;
-                                ghost->moveLeft = ghost->moveRight = ghost->moveDown = false;
-                            }
-                            else if (ghostPosX < ghost->ghostPath[ghost->currentTarget].col) { // target is on the right side
-                                ghost->moveRight = true;
-                                ghost->moveDown = ghost->moveLeft = ghost->moveUp = false;
-                            }
-                            else if (ghostPosX > ghost->ghostPath[ghost->currentTarget].col) { // target is on the left side
-                                ghost->moveLeft = true;
-                                ghost->moveDown = ghost->moveRight = ghost->moveUp = false;
-                            }
-                        }
-                        tempTarget.setPosition(ghost->ghostPath[ghost->currentTarget].col * CELLSIZE + 100, ghost->ghostPath[ghost->currentTarget].row * CELLSIZE + 100);
-                        FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
-                        // Defining collision rectangles for each side of the ghost
-                        FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
-                        FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height); // getting right rect of ghost
-                        FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
-                        FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
-
-                        FloatRect tempTargetBounds = tempTarget.getGlobalBounds();
-                        // Defining collision rectangles for each side of the ghost
-                        FloatRect leftRectTG(tempTargetBounds.left - 1, tempTargetBounds.top, 1, tempTargetBounds.height); // getting left rect of ghost
-                        FloatRect rightRectTG(tempTargetBounds.left + tempTargetBounds.width, tempTargetBounds.top, 1, tempTargetBounds.height); // getting right rect of ghost
-                        FloatRect topRectTG(tempTargetBounds.left, tempTargetBounds.top - 1, tempTargetBounds.width, 1); // getting top rect of ghost
-                        FloatRect bottomRectTG(tempTargetBounds.left, tempTargetBounds.top + tempTargetBounds.height, tempTargetBounds.width, 1); // getting bottom rect of ghost
-
-                        if (ghost->moveUp && topRect.intersects(topRectTG)) {
-                            ghost->moveUp = false;
-                        }
-                        else if (ghost->moveLeft && leftRect.intersects(leftRectTG)) {
-                            ghost->moveLeft = false;
-                        }
-                        else if (ghost->moveRight && rightRect.intersects(rightRectTG)) {
-                            ghost->moveRight = false;
-                        }
-                        else if (ghost->moveDown && bottomRect.intersects(bottomRectTG)) {
-                            ghost->moveDown = false;
-                        }
-                        if (elapsedTime >= pathFindingInterval || ghost->currentTarget == ghost->ghostPath.size()) {
-                            ghost->currentTarget = 0;
-                            foundPath = false;
-                            elapsedTime = 0;
-                            clock.restart();
-                            ghost->moveDown = ghost->moveUp = ghost->moveRight = ghost->moveLeft = false;
-                        }
-                        if (ghostBounds.intersects(intelligentGhostTarget.getGlobalBounds())) {
-                            cout << "Collision detected" << endl << endl;
-                            playerAndGhostHaveCollided = true;
-                        }
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath);
+                    if (elapsedTime >= pathFindingInterval) {
+                        ghostArgs->ghost->currentTarget = 0;
+                        foundPath = false;
+                        ghostArgs->ghost->ghostCanMove = false;
+                        elapsedTime = 0;
+                        clock.restart();
                     }
                 }
-                // Moving the ghost according to the position available
-                if (ghost->moveUp)
-                    ghost->getSprite().move(0.0f, -1.0f - ghost->getSpeed());
-                else if (ghost->moveLeft)
-                    ghost->getSprite().move(-1.0f - ghost->getSpeed(), 0.0f);
-                else if (ghost->moveRight)
-                    ghost->getSprite().move(1.0f + ghost->getSpeed(), 0.0f);
-                else if (ghost->moveDown)
-                    ghost->getSprite().move(0.0f, 1.0f + ghost->getSpeed());
+                MOVETHEGHOST(ghostArgs);
             }
             pthread_mutex_unlock(&objectMovementSynchronisor);
             sleep(milliseconds(5));
@@ -673,6 +558,14 @@ void DRAWMAZE(RenderWindow &window, CircleShape food, Sprite mazeBox) { // this 
                 food.setPosition((j * CELLSIZE + ((CELLSIZE / 2) - 5)) + 100, (i * CELLSIZE + ((CELLSIZE / 2) - 5)) + 100); // setting position of food such that it appears in the center of its block
                 window.draw(food); // drawing the food on window so that it can be rendered
             }
+            // else if (maze1[i][j] == 3) {
+            //     eatables.ghostBooster[eatables.ghostBoosterCurrCount].setPosition((j * CELLSIZE) + 100, (i * CELLSIZE) + 100);
+            //     window.draw(eatables.ghostBooster[eatables.ghostBoosterCurrCount]);
+            //     eatables.ghostBoosterCurrCount = (eatables.ghostBoosterCurrCount + 1) % eatables.ghostBooster.size();
+            // }
+            // else if (maze1[i][j] == 4) {
+                
+            // }
         }
     }
     // these are for the portals
@@ -702,6 +595,16 @@ void *GAMEINIT(void *arg) { // main game thread
     mazeBox.setTexture(box); // setting the Game Grid Sprite to maze texture
     mazeBox.scale(CELLSIZE, CELLSIZE); // scaling the sprite accoring to the cell size to fit in the screen
 
+    // loading up textures for eatables
+    Texture booster;
+    booster.loadFromFile("sprites/ghostBooster.png");
+    boost.setTexture(booster);
+    boost.setScale(0.4167f, 0.4167f);
+    Texture powerUp;
+    powerUp.loadFromFile("sprites/cherry.png");
+    power.setTexture(powerUp);
+    power.setScale(0.2778f, 0.2778f);
+
     Texture ghostTextures[5];
     ghostTextures[0].loadFromFile("sprites/redGhost.png");
     ghostTextures[1].loadFromFile("sprites/greenGhost.png");
@@ -711,9 +614,12 @@ void *GAMEINIT(void *arg) { // main game thread
 
     int initialTotalGhost = 3;
 
+    GHOSTARGS ghostArgs[initialTotalGhost];
     GHOST *ghosts[initialTotalGhost];
+
     for (int i = 0; i < initialTotalGhost; i++) {
         ghosts[i] = new GHOST(ghostTextures[i], i, i);
+        ghostArgs[i].ghost = ghosts[i];
     }
 
     playerTexLeft.loadFromFile("sprites/mouthOpenLeft.png"); // loading left side player png
@@ -727,6 +633,10 @@ void *GAMEINIT(void *arg) { // main game thread
     playerTexDownClose.loadFromFile("sprites/downMouthClose.png"); // loading downwards player png
 
     PLAYER playerObj(playerTexRight); // creating player obj,mkmlkjj
+
+    // setting up player's args
+    PLAYERARGS playerArgs;
+    playerArgs.player = &playerObj;
 
     //to display the string "Score" on the upper left corner
     Text displayScoreString;
@@ -750,12 +660,12 @@ void *GAMEINIT(void *arg) { // main game thread
     pthread_attr_setdetachstate(&detachProp, PTHREAD_CREATE_DETACHED); // making it detachable
     pthread_t ghostThread[initialTotalGhost]; 
     for (int i = 0; i < initialTotalGhost; i++) {
-        pthread_create(&ghostThread[i], &detachProp, GHOSTTHREAD, ghosts[i]); // creating a detachable ghost thread
+        pthread_create(&ghostThread[i], &detachProp, GHOSTTHREAD, &ghostArgs[i]); // creating a detachable ghost thread
         totalThreads++;
     }
 
     pthread_t playerThread; 
-    pthread_create(&playerThread, &detachProp, PLAYERTHREAD, (void **) &playerObj); // creating a detachable player thread
+    pthread_create(&playerThread, &detachProp, PLAYERTHREAD, &playerArgs); // creating a detachable player thread
     totalThreads++;
     pthread_attr_destroy(&detachProp);
 
@@ -852,5 +762,7 @@ int main()
     }
     pthread_mutex_destroy(&objectMovementSynchronisor);
     pthread_mutex_destroy(&pathFinder);
+    pthread_mutex_destroy(&pathIlluminator);
+    pthread_mutex_destroy(&ghostMover);
     return 0;
 }
