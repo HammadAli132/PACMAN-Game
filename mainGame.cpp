@@ -673,13 +673,13 @@ void *GAMEINIT(void *arg) { // main game thread
 
     blueGhostTex.loadFromFile("sprites/blueGhost.png");
 
-    int initialTotalGhost = 3;
+    int initialTotalGhost = 4;
 
     GHOSTARGS ghostArgs[initialTotalGhost];
     GHOST *ghosts[initialTotalGhost];
 
     for (int i = 0; i < initialTotalGhost; i++) {
-        ghosts[i] = new GHOST(ghostTextures[i], i, i);
+        ghosts[i] = new GHOST(ghostTextures[i], i, i % 3);
         ghostArgs[i].ghost = ghosts[i];
     }
 
