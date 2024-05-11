@@ -735,13 +735,13 @@ void *GAMEINIT(void *arg) { // main game thread
     sbl[0].x = 19, sbl[0].y = 1;
     sbl[1].x = 4, sbl[1].y = 11;
 
-    int initialTotalGhost = 1;
+    int initialTotalGhost = 3;
 
     GHOSTARGS ghostArgs[initialTotalGhost];
     GHOST *ghosts[initialTotalGhost];
 
     for (int i = 0; i < initialTotalGhost; i++) {
-        ghosts[i] = new GHOST(ghostTextures[i], i, 0);
+        ghosts[i] = new GHOST(ghostTextures[i], i, i);
         ghostArgs[i].ghost = ghosts[i];
         ghostArgs[i].SBL.push_back(&sbl[0]);
         ghostArgs[i].SBL.push_back(&sbl[1]);
