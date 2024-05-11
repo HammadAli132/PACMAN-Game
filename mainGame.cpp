@@ -16,21 +16,21 @@ const int gridRows = GRIDHEIGHT / CELLSIZE;
 const int gridCols = GRIDWIDTH / CELLSIZE;
 vector<vector<int>> maze1 = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // 1 is for wall, 0 if for food and path
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1}, // 2 is for path only, and 3 is for speedboost
+    {1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1}, // 2 is for path only, and 3 is for speedboost
     {1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1}, // 4 is for powerUp
-    {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
+    {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 4, 1, 0, 1, 1, 0, 1},
     {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 2, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1},
-    {2, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 2},
+    {2, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 4, 2},
     {1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 0, 1, 1, 3, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1},
-    {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
+    {1, 0, 1, 1, 0, 1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1},
-    {1, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 };
 bool threadExit = false; // this is a boolean to close all detached threads when the game closes
@@ -48,6 +48,9 @@ Texture playerTexLeftClose;
 Texture playerTexRightClose;
 Texture playerTexUpClose;
 Texture playerTexDownClose;
+
+Texture blueGhostTex;
+
 // this is our circular food
 CircleShape Food(5.0f); 
 RectangleShape intelligentGhostTarget(Vector2f(50.0f, 50.0f));
@@ -61,7 +64,9 @@ int totalThreads = 1;
 int exitedThread = 0;
 int currentGhostToLeave = 0;
 #define SPEEDBOOST 0.2f
-bool playerAndGhostHaveCollided = false;
+bool ghostAtePacman = false;
+bool playerGotPowerUp = false;
+bool ghostAteFruit = false;
 
 
 struct Point {
@@ -75,15 +80,18 @@ private:
     int mode; // Ghost mode (e.g., scatter, chase)
     float speed; // this is ghost's speed used for speed boost
     pair<int, int> target; // this is the ghost's target having x and y co-ordinates
-
 public:
+    Texture defaultText;
     bool moveLeft = false; // boolean for left movement
     bool moveRight = false; // boolean for right movement
-    bool moveUp = true; // boolean for up movement
+    bool moveUp = false; // boolean for up movement
     bool moveDown = false; // boolean for down movement
     vector<Point> ghostPath;
     int currentTarget = 0;
     bool ghostCanMove = true;
+    bool ghostHasSpeedBoost = false;
+    Clock ghostClock;
+    float ghostElapsedTime = 0;
 
     GHOST(Texture &text, int t, int m = 0, float sp = 0) { // Constructor
         this->sprite.setTexture(text);
@@ -93,7 +101,12 @@ public:
         this->mode = m;
         this->speed = sp;
         target = make_pair(10, 6);
+        this->defaultText = text;
     } 
+    void changeTexture(Texture& tex){
+        this->sprite.setTexture(tex);
+        this->sprite.setScale(1.0f, 1.0f);
+    }
     // Getter for sprite
     Sprite& getSprite() { return sprite; }
     // Setter for sprite
@@ -148,15 +161,6 @@ public:
     void setScore(int Score) { this->score = Score; }
 };
 
-struct EATABLES {
-    vector<Sprite> powerUp;
-    int powerUpTotalCount = 0;
-    int powerUpCurrCount = 0;
-    vector<Sprite> ghostBooster;
-    int ghostBoosterTotalCount = 0;
-    int ghostBoosterCurrCount = 0;
-};
-
 struct PLAYERARGS {
     PLAYER *player;
 };
@@ -170,18 +174,28 @@ void *PLAYERTHREAD(void *arg){
     
     bool collisionDetected = false; // boolean for collision detection
 
+    float elapsedTime = 0, powerUpTime = 3000;
+    Clock clock;
     while(!threadExit){
         collisionDetected = false;
         pthread_mutex_lock(&objectMovementSynchronisor);
-        if (playerAndGhostHaveCollided) {
+        if (ghostAtePacman && !playerGotPowerUp) {
             playerArgs->player->getSprite().setPosition(PLAYERPOSX * CELLSIZE + 100, PLAYERPOSY * CELLSIZE + 100);
-            playerAndGhostHaveCollided = false;
+            ghostAtePacman = false;
         }
 
         if (playerArgs->player->getSprite().getPosition().x == -50) // if player moves out from left portal
             playerArgs->player->getSprite().setPosition(GRIDWIDTH + 200, 500);
         else if (playerArgs->player->getSprite().getPosition().x == GRIDWIDTH + 200) // if player moves out from right portal
             playerArgs->player->getSprite().setPosition(-50, 500);
+
+        if (playerGotPowerUp) {
+            elapsedTime += clock.getElapsedTime().asSeconds();
+            if (elapsedTime >= powerUpTime) {
+                elapsedTime = 0;
+                playerGotPowerUp = false;
+            }
+        }
 
         FloatRect playerBounds = playerArgs->player->getSprite().getGlobalBounds();
         // Defining collision rectangles for each side of the player
@@ -232,6 +246,16 @@ void *PLAYERTHREAD(void *arg){
                         maze1[i][j] = -99;
                         int score = playerArgs->player->getScore();
                         playerArgs->player->setScore(score += 1); //increasing score as the player eats food
+                    }
+                }
+                // detecting player's collision with power up
+                else if(!playerGotPowerUp && maze1[i][j] == 4){
+                    power.setPosition((j * CELLSIZE) + 100, (i * CELLSIZE) + 100); //placing temporary Food at current position
+                    FloatRect FoodBounds = power.getGlobalBounds();
+                    if(playerBounds.intersects(FoodBounds)){
+                        maze1[i][j] = -99;
+                        playerGotPowerUp = true;
+                        clock.restart();
                     }
                 }
             }           
@@ -290,54 +314,6 @@ void *PLAYERTHREAD(void *arg){
     pthread_exit(NULL);    
 }
 
-void LEAVEHOME(bool &collisionDetected, bool &leftHome, GHOST *ghost) {
-    // Getting the global bounds of the ghost
-    FloatRect ghostBounds = ghost->getSprite().getGlobalBounds();
-
-    // Defining collision rectangles for each side of the ghost
-    FloatRect leftRect(ghostBounds.left - 1, ghostBounds.top, 1, ghostBounds.height); // getting left rect of ghost
-    FloatRect rightRect(ghostBounds.left + ghostBounds.width, ghostBounds.top, 1, ghostBounds.height); // getting right rect of ghost
-    FloatRect topRect(ghostBounds.left, ghostBounds.top - 1, ghostBounds.width, 1); // getting top rect of ghost
-    FloatRect bottomRect(ghostBounds.left, ghostBounds.top + ghostBounds.height, ghostBounds.width, 1); // getting bottom rect of ghost
-
-    for (int i = 0; i < gridRows; ++i) {
-        for (int j = 0; j < gridCols; ++j) {
-            if (maze1[i][j] == 1) { // if maze[i][j] is 1 then we can place a temporary mazeBox there
-                mazeBox.setPosition(j * CELLSIZE + 100, i * CELLSIZE + 100); // placing temporary mazeBox at current location
-                // if ghost is moving up wards and collision is detected above the ghost
-                if (ghost->moveUp && topRect.intersects(mazeBox.getGlobalBounds())) {
-                    // cout << "X: " << (int)((ghost->getSprite().getPosition().x - 100) / CELLSIZE) << " and Y: " << (int)((ghost->getSprite().getPosition().y - 100) / CELLSIZE) << endl;
-                    collisionDetected = true;
-                    if (!leftHome) {
-                        currentGhostToLeave++;
-                        leftHome = true;
-                    }
-                    while (collisionDetected){
-                        int randomDirection = abs(rand() % 2); // we get random direction for our ghost
-                        // checking if that direction is available or not
-                        switch(randomDirection) {
-                            case 0: // for left movement
-                                if (!leftRect.intersects(mazeBox.getGlobalBounds())) { // if there is no obstacle on the left side, we allow left movement
-                                    ghost->moveLeft = true;
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
-                            case 1: // for right movement
-                                if (!rightRect.intersects(mazeBox.getGlobalBounds())) {
-                                    ghost->moveRight = true;
-                                    collisionDetected = false; // collision detected is set to false
-                                }
-                            break;
-                        }
-                    }
-                    ghost->moveUp = false;
-                }
-            }
-        }
-    }
-    return;
-}
-
 // Function to check if a point is valid (within the bounds of the grid)
 bool isValid(int x, int y) {
     return (x >= 0 && x < gridRows && y >= 0 && y < gridCols);
@@ -385,7 +361,7 @@ void GETPATHTOTARGET(GHOST *ghost, Point start, Point target) {
     }
 }
 
-void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath) {
+void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &leftHome, bool &collisionDetected) {
     int ghostPosX = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
     int ghostPosY = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE;
     RectangleShape tempTarget(Vector2f(50.0f, 50.0f));
@@ -439,10 +415,40 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath) {
     if (ghostArgs->ghost->currentTarget == ghostArgs->ghost->ghostPath.size()) {
         ghostArgs->ghost->currentTarget = 0;
         foundPath = false;
+        if (!leftHome) {
+            if (ghostArgs->ghost->getID() >= currentGhostToLeave)
+                currentGhostToLeave++;
+            leftHome = true;
+        }
         ghostArgs->ghost->ghostCanMove = false;
     }
-    if (ghostBounds.intersects(intelligentGhostTarget.getGlobalBounds())) {
-        playerAndGhostHaveCollided = true;
+    if (!playerGotPowerUp && ghostBounds.intersects(intelligentGhostTarget.getGlobalBounds())) {
+        ghostAtePacman = true;
+    }
+    else if (playerGotPowerUp && ghostBounds.intersects(intelligentGhostTarget.getGlobalBounds())) {
+        ghostArgs->ghost->currentTarget = 0;
+        leftHome = false;
+        foundPath = false;
+        collisionDetected = false;
+        ghostArgs->ghost->getSprite().setPosition(GHOSTHOMEX * CELLSIZE + 100, GHOSTHOMEY * CELLSIZE + 100);
+    }
+    if (!ghostArgs->ghost->ghostHasSpeedBoost && ghostPosX == 19 && ghostPosY == 1) {
+        if (maze1[1][19] == 3) {
+            maze1[1][19] = -99;
+            ghostArgs->ghost->ghostHasSpeedBoost = true;
+            ghostArgs->ghost->ghostClock.restart();
+            ghostArgs->ghost->ghostElapsedTime = 0;
+            ghostArgs->ghost->setSpeed(SPEEDBOOST);
+        }
+    }
+    else if (!ghostArgs->ghost->ghostHasSpeedBoost && ghostPosX == 4 && ghostPosY == 11) {
+        if (maze1[11][4] == 3) {
+            maze1[11][4] = -99;
+            ghostArgs->ghost->ghostHasSpeedBoost = true;
+            ghostArgs->ghost->ghostClock.restart();
+            ghostArgs->ghost->ghostElapsedTime = 0;
+            ghostArgs->ghost->setSpeed(SPEEDBOOST);
+        }
     }
 }
 
@@ -467,15 +473,30 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
     bool foundPath = false;
     // initially only up ward movement is allowed because the ghost has to move up to come out of the home
     Clock clock;
-    float elapsedTime = 0, pathFindingInterval = 400;
+    float elapsedTime = 0, pathFindingInterval = 400, speedBoostInterval = 3000;
     clock.restart();
     while (!threadExit) { // loop iterate until threadExit becomes true
-        if (currentGhostToLeave == ghostArgs->ghost->getID() || leftHome) {
+        if (currentGhostToLeave >= ghostArgs->ghost->getID() || leftHome) {
             pthread_mutex_lock(&objectMovementSynchronisor);
+            if (playerGotPowerUp) {
+                ghostArgs->ghost->changeTexture(blueGhostTex);
+            }
+            else {
+                ghostArgs->ghost->changeTexture(ghostArgs->ghost->defaultText);
+            }
             if (ghostArgs->ghost->getMode() == 0) { // this is for simple ghost
                 srand(time(0) ^ pthread_self());
-                if (!leftHome)
-                    LEAVEHOME(collisionDetected, leftHome, ghostArgs->ghost);
+                if (!leftHome) {
+                    if (!collisionDetected) {
+                        Point ghostPosition, ghostTarget;
+                        ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = 6, ghostTarget.col = 10;
+                        GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
+                        collisionDetected = true;
+                        ghostArgs->ghost->ghostCanMove = false;
+                    }
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, collisionDetected);
+                }
                 else {
                     if (!foundPath) {
                         vector<vector<int>> corners = {{1, 1}, {19, 1}, {1, 15}, {19, 15}};
@@ -487,14 +508,30 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
                         foundPath = true;
                         ghostArgs->ghost->ghostCanMove = false;
                     }
-                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath);
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, collisionDetected);
+                }
+                if (ghostArgs->ghost->ghostHasSpeedBoost) {
+                    ghostArgs->ghost->ghostElapsedTime += ghostArgs->ghost->ghostClock.getElapsedTime().asSeconds();
+                    if (ghostArgs->ghost->ghostElapsedTime >= speedBoostInterval) {
+                        ghostArgs->ghost->setSpeed(0);
+                        ghostArgs->ghost->ghostHasSpeedBoost = false;
+                    }
                 }
                 MOVETHEGHOST(ghostArgs);
             }
             else if (ghostArgs->ghost->getMode() == 1) { // this is for a semi intelligent ghost
                 srand(time(0) ^ pthread_self());
-                if (!leftHome)
-                    LEAVEHOME(collisionDetected, leftHome, ghostArgs->ghost);
+                if (!leftHome) {
+                    if (!collisionDetected) {
+                        Point ghostPosition, ghostTarget;
+                        ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = 6, ghostTarget.col = 10;
+                        GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
+                        collisionDetected = true;
+                        ghostArgs->ghost->ghostCanMove = false;
+                    }
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, collisionDetected);
+                }
                 else {
                     if (!foundPath) {
                         srand(time(0));
@@ -510,14 +547,30 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
                         foundPath = true;
                         ghostArgs->ghost->ghostCanMove = false;
                     }
-                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath);
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, collisionDetected);
+                }
+                if (ghostArgs->ghost->ghostHasSpeedBoost) {
+                    ghostArgs->ghost->ghostElapsedTime += ghostArgs->ghost->ghostClock.getElapsedTime().asSeconds();
+                    if (ghostArgs->ghost->ghostElapsedTime >= speedBoostInterval) {
+                        ghostArgs->ghost->setSpeed(0);
+                        ghostArgs->ghost->ghostHasSpeedBoost = false;
+                    }
                 }
                 MOVETHEGHOST(ghostArgs);
             }
             else if (ghostArgs->ghost->getMode() == 2) { // this is for a fully intelligent ghost
                 elapsedTime += clock.getElapsedTime().asSeconds();
-                if (!leftHome)
-                    LEAVEHOME(collisionDetected, leftHome, ghostArgs->ghost);
+                if (!leftHome) {
+                    if (!collisionDetected) {
+                        Point ghostPosition, ghostTarget;
+                        ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = 6, ghostTarget.col = 10;
+                        GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
+                        collisionDetected = true;
+                        ghostArgs->ghost->ghostCanMove = false;
+                    }
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, collisionDetected);   
+                }
                 else {
                     if (!foundPath) {
                         ghostArgs->ghost->setTarget(make_pair(PlayerX, PlayerY)); // setting new target for ghost
@@ -528,13 +581,20 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
                         foundPath = true;
                         ghostArgs->ghost->ghostCanMove = false;
                     }
-                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath);
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, collisionDetected);
                     if (elapsedTime >= pathFindingInterval) {
                         ghostArgs->ghost->currentTarget = 0;
                         foundPath = false;
                         ghostArgs->ghost->ghostCanMove = false;
                         elapsedTime = 0;
                         clock.restart();
+                    }
+                }
+                if (ghostArgs->ghost->ghostHasSpeedBoost) {
+                    ghostArgs->ghost->ghostElapsedTime += ghostArgs->ghost->ghostClock.getElapsedTime().asSeconds();
+                    if (ghostArgs->ghost->ghostElapsedTime >= speedBoostInterval) {
+                        ghostArgs->ghost->setSpeed(0);
+                        ghostArgs->ghost->ghostHasSpeedBoost = false;
                     }
                 }
                 MOVETHEGHOST(ghostArgs);
@@ -558,14 +618,14 @@ void DRAWMAZE(RenderWindow &window, CircleShape food, Sprite mazeBox) { // this 
                 food.setPosition((j * CELLSIZE + ((CELLSIZE / 2) - 5)) + 100, (i * CELLSIZE + ((CELLSIZE / 2) - 5)) + 100); // setting position of food such that it appears in the center of its block
                 window.draw(food); // drawing the food on window so that it can be rendered
             }
-            // else if (maze1[i][j] == 3) {
-            //     eatables.ghostBooster[eatables.ghostBoosterCurrCount].setPosition((j * CELLSIZE) + 100, (i * CELLSIZE) + 100);
-            //     window.draw(eatables.ghostBooster[eatables.ghostBoosterCurrCount]);
-            //     eatables.ghostBoosterCurrCount = (eatables.ghostBoosterCurrCount + 1) % eatables.ghostBooster.size();
-            // }
-            // else if (maze1[i][j] == 4) {
-                
-            // }
+            else if (maze1[i][j] == 3) {
+                boost.setPosition((j * CELLSIZE) + 100, (i * CELLSIZE) + 100);
+                window.draw(boost);
+            }
+            else if (maze1[i][j] == 4) {
+                power.setPosition((j * CELLSIZE) + 100, (i * CELLSIZE) + 100);
+                window.draw(power);
+            }
         }
     }
     // these are for the portals
@@ -590,10 +650,10 @@ void DRAWMAZE(RenderWindow &window, CircleShape food, Sprite mazeBox) { // this 
 
 void *GAMEINIT(void *arg) { // main game thread
     RenderWindow gameWindow(VideoMode(GRIDWIDTH + 200, GRIDHEIGHT + 200), "PACMAN Game", Style::Default);
-
+    
     box.loadFromFile("sprites/box.png"); // loading the texture with maze.png
     mazeBox.setTexture(box); // setting the Game Grid Sprite to maze texture
-    mazeBox.scale(CELLSIZE, CELLSIZE); // scaling the sprite accoring to the cell size to fit in the screen
+    mazeBox.scale(5.0f, 5.0f); // scaling the sprite accoring to the cell size to fit in the screen
 
     // loading up textures for eatables
     Texture booster;
@@ -610,7 +670,8 @@ void *GAMEINIT(void *arg) { // main game thread
     ghostTextures[1].loadFromFile("sprites/greenGhost.png");
     ghostTextures[2].loadFromFile("sprites/yellowGhost.png");
     ghostTextures[3].loadFromFile("sprites/pinkGhost.png");
-    ghostTextures[4].loadFromFile("sprites/blueGhost.png");
+
+    blueGhostTex.loadFromFile("sprites/blueGhost.png");
 
     int initialTotalGhost = 3;
 
