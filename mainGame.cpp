@@ -16,19 +16,19 @@ const int gridRows = GRIDHEIGHT / CELLSIZE;
 const int gridCols = GRIDWIDTH / CELLSIZE;
 vector<vector<int>> maze1 = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // 1 is for wall, 0 if for food and path
-    {1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1}, // 2 is for path only, and 3 is for speedboost
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}, // 2 is for path only, and 3 is for speedboost
     {1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1}, // 4 is for powerUp
-    {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 4, 1, 0, 1, 1, 0, 1},
+    {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 2, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1},
-    {2, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 4, 2},
+    {2, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 2},
     {1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 1, 1, 3, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
+    {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1},
-    {1, 0, 1, 1, 0, 1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
+    {1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1},
     {1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -63,11 +63,13 @@ int PlayerY = 15;
 int totalThreads = 1;
 int exitedThread = 0;
 int currentGhostToLeave = 0;
+int powerPelletsCount = 0;
+int speedBoostersCount = 0;
 #define SPEEDBOOST 0.2f
 bool ghostAtePacman = false;
 bool playerGotPowerUp = false;
-bool ghostAteFruit = false;
-
+Clock clockForPP, clockForSB;
+float elapsedTimeForSB = 0;
 
 struct Point {
     int row, col;
@@ -161,12 +163,25 @@ public:
     void setScore(int Score) { this->score = Score; }
 };
 
+struct POWERPELLETLOCATIONS {
+    int x, y;
+    bool isDisplayed = false;
+};
+
+struct SPEEDBOOSTERLOCATIONS {
+    int x, y;
+    bool isDisplayed = false;
+};
+
 struct PLAYERARGS {
     PLAYER *player;
+    vector<POWERPELLETLOCATIONS*> PPL;
+    vector<SPEEDBOOSTERLOCATIONS*> SBL;
 };
 
 struct GHOSTARGS {
     GHOST *ghost;
+    vector<SPEEDBOOSTERLOCATIONS*> SBL;
 };
 
 void *PLAYERTHREAD(void *arg){
@@ -174,11 +189,40 @@ void *PLAYERTHREAD(void *arg){
     
     bool collisionDetected = false; // boolean for collision detection
 
-    float elapsedTime = 0, powerUpTime = 3000;
+    float elapsedTime = 0, powerUpTime = 3000,  elapsedTimeForPP = 0, displayPPAndSBInterval = 5000;
     Clock clock;
+    clockForPP.restart();
+    clockForSB.restart();
     while(!threadExit){
         collisionDetected = false;
         pthread_mutex_lock(&objectMovementSynchronisor);
+        elapsedTimeForPP += clockForPP.getElapsedTime().asSeconds();
+        elapsedTimeForSB += clockForSB.getElapsedTime().asSeconds();
+
+        if (powerPelletsCount < 4 && elapsedTimeForPP >= displayPPAndSBInterval) {
+            powerPelletsCount++;
+            srand(time(0) ^ pthread_self());
+            int pplIndex = rand() % 4;
+            while (playerArgs->PPL[pplIndex]->isDisplayed)
+                pplIndex = rand() % 4;
+            playerArgs->PPL[pplIndex]->isDisplayed = true;
+            maze1[playerArgs->PPL[pplIndex]->y][playerArgs->PPL[pplIndex]->x] = 4; // setting food for pacman
+            clockForPP.restart();
+            elapsedTimeForPP = 0;
+        }
+
+        if (speedBoostersCount < 2 && elapsedTimeForSB >= displayPPAndSBInterval) {
+            speedBoostersCount++;
+            srand(time(0) ^ pthread_self());
+            int sblIndex = rand() % 2;
+            while (playerArgs->SBL[sblIndex]->isDisplayed)
+                sblIndex = rand() % 2;
+            playerArgs->SBL[sblIndex]->isDisplayed = true;
+            maze1[playerArgs->SBL[sblIndex]->y][playerArgs->SBL[sblIndex]->x] = 3; // setting speed booster for ghosts
+            clockForSB.restart();
+            elapsedTimeForSB = 0;
+        }
+
         if (ghostAtePacman && !playerGotPowerUp) {
             playerArgs->player->getSprite().setPosition(PLAYERPOSX * CELLSIZE + 100, PLAYERPOSY * CELLSIZE + 100);
             ghostAtePacman = false;
@@ -255,6 +299,15 @@ void *PLAYERTHREAD(void *arg){
                     if(playerBounds.intersects(FoodBounds)){
                         maze1[i][j] = -99;
                         playerGotPowerUp = true;
+                        for (int k = 0; k < 4; k++)
+                            if (playerArgs->PPL[k]->isDisplayed && playerArgs->PPL[k]->x == j && playerArgs->PPL[k]->y == i) {
+                                playerArgs->PPL[k]->isDisplayed = false;
+                                powerPelletsCount--;
+                                elapsedTimeForPP = 0;
+                                clockForPP.restart();
+                                cout << "Player Ate PPL at X: " << playerArgs->PPL[k]->x << " Y: " << playerArgs->PPL[k]->y << endl;
+                                break;
+                            }
                         clock.restart();
                     }
                 }
@@ -432,22 +485,20 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
         collisionDetected = false;
         ghostArgs->ghost->getSprite().setPosition(GHOSTHOMEX * CELLSIZE + 100, GHOSTHOMEY * CELLSIZE + 100);
     }
-    if (!ghostArgs->ghost->ghostHasSpeedBoost && ghostPosX == 19 && ghostPosY == 1) {
-        if (maze1[1][19] == 3) {
-            maze1[1][19] = -99;
-            ghostArgs->ghost->ghostHasSpeedBoost = true;
-            ghostArgs->ghost->ghostClock.restart();
-            ghostArgs->ghost->ghostElapsedTime = 0;
-            ghostArgs->ghost->setSpeed(SPEEDBOOST);
-        }
-    }
-    else if (!ghostArgs->ghost->ghostHasSpeedBoost && ghostPosX == 4 && ghostPosY == 11) {
-        if (maze1[11][4] == 3) {
-            maze1[11][4] = -99;
-            ghostArgs->ghost->ghostHasSpeedBoost = true;
-            ghostArgs->ghost->ghostClock.restart();
-            ghostArgs->ghost->ghostElapsedTime = 0;
-            ghostArgs->ghost->setSpeed(SPEEDBOOST);
+    for (int i = 0; i < 2; i++) {
+        if (!ghostArgs->ghost->ghostHasSpeedBoost && ghostArgs->SBL[i]->isDisplayed && ghostPosX == ghostArgs->SBL[i]->x && ghostPosY == ghostArgs->SBL[i]->y) {
+            if (maze1[ghostPosY][ghostPosX] == 3) {
+                maze1[ghostPosY][ghostPosX] = -99;
+                cout << "Ghost Ate Speed Booster at X: " << ghostPosX << " Y: " << ghostPosY << endl;
+                ghostArgs->ghost->ghostHasSpeedBoost = true;
+                ghostArgs->ghost->ghostClock.restart();
+                ghostArgs->ghost->ghostElapsedTime = 0;
+                ghostArgs->ghost->setSpeed(SPEEDBOOST);
+                ghostArgs->SBL[i]->isDisplayed = false;
+                clockForSB.restart();
+                elapsedTimeForSB = 0;
+                speedBoostersCount--;
+            }
         }
     }
 }
@@ -673,14 +724,27 @@ void *GAMEINIT(void *arg) { // main game thread
 
     blueGhostTex.loadFromFile("sprites/blueGhost.png");
 
-    int initialTotalGhost = 4;
+    // creating vector of PPL and SBL to pass them in playerArgs
+    POWERPELLETLOCATIONS ppl[4];
+    ppl[0].x = 1, ppl[0].y = 1; 
+    ppl[1].x = 14, ppl[1].y = 3; 
+    ppl[2].x = 19, ppl[2].y = 8; 
+    ppl[3].x = 6, ppl[3].y = 13; 
+
+    SPEEDBOOSTERLOCATIONS sbl[2];
+    sbl[0].x = 19, sbl[0].y = 1;
+    sbl[1].x = 4, sbl[1].y = 11;
+
+    int initialTotalGhost = 1;
 
     GHOSTARGS ghostArgs[initialTotalGhost];
     GHOST *ghosts[initialTotalGhost];
 
     for (int i = 0; i < initialTotalGhost; i++) {
-        ghosts[i] = new GHOST(ghostTextures[i], i, i % 3);
+        ghosts[i] = new GHOST(ghostTextures[i], i, 0);
         ghostArgs[i].ghost = ghosts[i];
+        ghostArgs[i].SBL.push_back(&sbl[0]);
+        ghostArgs[i].SBL.push_back(&sbl[1]);
     }
 
     playerTexLeft.loadFromFile("sprites/mouthOpenLeft.png"); // loading left side player png
@@ -698,6 +762,11 @@ void *GAMEINIT(void *arg) { // main game thread
     // setting up player's args
     PLAYERARGS playerArgs;
     playerArgs.player = &playerObj;
+    for (int i = 0; i < 4; i++)
+        playerArgs.PPL.push_back(&ppl[i]);
+
+    for (int i = 0; i < 2; i++)
+        playerArgs.SBL.push_back(&sbl[i]);
 
     //to display the string "Score" on the upper left corner
     Text displayScoreString;
