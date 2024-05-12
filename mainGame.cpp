@@ -69,7 +69,7 @@ int speedBoostersCount = 0;
 bool ghostAtePacman = false;
 bool playerGotPowerUp = false;
 Clock clockForPP, clockForSB;
-float elapsedTimeForSB = 0;
+float elapsedTimeForSB = 0,  elapsedTimeForPP = 0, displayPPAndSBInterval = 5000;
 
 struct Point {
     int row, col;
@@ -189,39 +189,13 @@ void *PLAYERTHREAD(void *arg){
     
     bool collisionDetected = false; // boolean for collision detection
 
-    float elapsedTime = 0, powerUpTime = 3000,  elapsedTimeForPP = 0, displayPPAndSBInterval = 5000;
+    float elapsedTime = 0, powerUpTime = 3000;
     Clock clock;
     clockForPP.restart();
     clockForSB.restart();
     while(!threadExit){
         collisionDetected = false;
         pthread_mutex_lock(&objectMovementSynchronisor);
-        elapsedTimeForPP += clockForPP.getElapsedTime().asSeconds();
-        elapsedTimeForSB += clockForSB.getElapsedTime().asSeconds();
-
-        if (powerPelletsCount < 4 && elapsedTimeForPP >= displayPPAndSBInterval) {
-            powerPelletsCount++;
-            srand(time(0) ^ pthread_self());
-            int pplIndex = rand() % 4;
-            while (playerArgs->PPL[pplIndex]->isDisplayed)
-                pplIndex = rand() % 4;
-            playerArgs->PPL[pplIndex]->isDisplayed = true;
-            maze1[playerArgs->PPL[pplIndex]->y][playerArgs->PPL[pplIndex]->x] = 4; // setting food for pacman
-            clockForPP.restart();
-            elapsedTimeForPP = 0;
-        }
-
-        if (speedBoostersCount < 2 && elapsedTimeForSB >= displayPPAndSBInterval) {
-            speedBoostersCount++;
-            srand(time(0) ^ pthread_self());
-            int sblIndex = rand() % 2;
-            while (playerArgs->SBL[sblIndex]->isDisplayed)
-                sblIndex = rand() % 2;
-            playerArgs->SBL[sblIndex]->isDisplayed = true;
-            maze1[playerArgs->SBL[sblIndex]->y][playerArgs->SBL[sblIndex]->x] = 3; // setting speed booster for ghosts
-            clockForSB.restart();
-            elapsedTimeForSB = 0;
-        }
 
         if (ghostAtePacman && !playerGotPowerUp) {
             playerArgs->player->getSprite().setPosition(PLAYERPOSX * CELLSIZE + 100, PLAYERPOSY * CELLSIZE + 100);
@@ -827,6 +801,32 @@ void *GAMEINIT(void *arg) { // main game thread
         else if(Keyboard::isKeyPressed(Keyboard::D) && playerObj.currentDir != 'D') {
             playerObj.prevDir = playerObj.currentDir;
             playerObj.currentDir = 'D';
+        }
+        elapsedTimeForPP += clockForPP.getElapsedTime().asSeconds();
+        elapsedTimeForSB += clockForSB.getElapsedTime().asSeconds();
+
+        if (powerPelletsCount < 4 && elapsedTimeForPP >= displayPPAndSBInterval) {
+            powerPelletsCount++;
+            srand(time(0) ^ pthread_self());
+            int pplIndex = rand() % 4;
+            while (ppl[pplIndex].isDisplayed)
+                pplIndex = rand() % 4;
+            ppl[pplIndex].isDisplayed = true;
+            maze1[ppl[pplIndex].y][ppl[pplIndex].x] = 4; // setting food for pacman
+            clockForPP.restart();
+            elapsedTimeForPP = 0;
+        }
+
+        if (speedBoostersCount < 2 && elapsedTimeForSB >= displayPPAndSBInterval) {
+            speedBoostersCount++;
+            srand(time(0) ^ pthread_self());
+            int sblIndex = rand() % 2;
+            while (sbl[sblIndex].isDisplayed)
+                sblIndex = rand() % 2;
+            sbl[sblIndex].isDisplayed = true;
+            maze1[sbl[sblIndex].y][sbl[sblIndex].x] = 3; // setting speed booster for ghosts
+            clockForSB.restart();
+            elapsedTimeForSB = 0;
         }
         pthread_mutex_unlock(&objectMovementSynchronisor);
         if(clock.getElapsedTime().asSeconds() >= changeMouthTimer && mouthOpened){
