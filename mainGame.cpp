@@ -39,6 +39,8 @@ Texture box; // creating a texture for maze.png
 Sprite boost;
 Sprite power;
 Sprite pointer;
+Sprite lives[3];
+vector<Sprite> heartChain = {};
 // these are open mouth textures
 Texture playerTexLeft;
 Texture playerTexRight;
@@ -49,9 +51,7 @@ Texture playerTexLeftClose;
 Texture playerTexRightClose;
 Texture playerTexUpClose;
 Texture playerTexDownClose;
-
 Texture blueGhostTex;
-
 // this is our circular food
 CircleShape Food(5.0f); 
 RectangleShape intelligentGhostTarget(Vector2f(50.0f, 50.0f));
@@ -66,6 +66,7 @@ int exitedThread = 0;
 int currentGhostToLeave = 0;
 int powerPelletsCount = 0;
 int speedBoostersCount = 0;
+int totalLives = 3;
 #define SPEEDBOOST 0.2f
 bool ghostAtePacman = false;
 bool playerGotPowerUp = false;
@@ -221,6 +222,7 @@ struct PLAYERARGS {
 
 struct GHOSTARGS {
     GHOST *ghost;
+    PLAYER *player;
     vector<SPEEDBOOSTERLOCATIONS*> SBL;
 };
 
@@ -263,6 +265,11 @@ void *PLAYERTHREAD(void *arg){
             if (ghostAtePacman && !playerGotPowerUp) {
                 playerArgs->player->getSprite().setPosition(PLAYERPOSX * CELLSIZE + 100, PLAYERPOSY * CELLSIZE + 100);
                 ghostAtePacman = false;
+                totalLives--;
+                if (totalLives == 0) {
+                    isGamePlay = false;
+                    isGameOver = true;
+                }
             }
 
             if (playerArgs->player->getSprite().getPosition().x == -50) // if player moves out from left portal
@@ -513,10 +520,10 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
         }
         ghostArgs->ghost->ghostCanMove = false;
     }
-    if (!playerGotPowerUp && ghostBounds.intersects(intelligentGhostTarget.getGlobalBounds())) {
+    if (!playerGotPowerUp && ghostBounds.intersects(ghostArgs->player->getSprite().getGlobalBounds())) {
         ghostAtePacman = true;
     }
-    else if (playerGotPowerUp && ghostBounds.intersects(intelligentGhostTarget.getGlobalBounds())) {
+    else if (playerGotPowerUp && ghostBounds.intersects(ghostArgs->player->getSprite().getGlobalBounds())) {
         ghostArgs->ghost->currentTarget = 0;
         leftHome = false;
         foundPath = false;
@@ -756,6 +763,15 @@ void *GAMEINIT(void *arg) { // main game thread
     Sprite mainBackground;
     mainBackground.setTexture(mainBG);
 
+    Texture life;
+    life.loadFromFile("sprites/lives.png");
+    for (int i = 0; i < 3; i++) {
+        lives[i].setTexture(life);
+        lives[i].setPosition(980 + (i * 60), 50);
+        lives[i].setScale(0.12, 0.12);
+        heartChain.push_back(lives[i]);
+    }
+
     // loading up textures for eatables
     Texture booster;
     booster.loadFromFile("sprites/ghostBooster.png");
@@ -785,18 +801,6 @@ void *GAMEINIT(void *arg) { // main game thread
     sbl[0].x = 19, sbl[0].y = 1;
     sbl[1].x = 4, sbl[1].y = 11;
 
-    int initialTotalGhost = 3;
-
-    GHOSTARGS ghostArgs[initialTotalGhost];
-    GHOST *ghosts[initialTotalGhost];
-
-    for (int i = 0; i < initialTotalGhost; i++) {
-        ghosts[i] = new GHOST(ghostTextures[i], i, i);
-        ghostArgs[i].ghost = ghosts[i];
-        ghostArgs[i].SBL.push_back(&sbl[0]);
-        ghostArgs[i].SBL.push_back(&sbl[1]);
-    }
-
     playerTexLeft.loadFromFile("sprites/mouthOpenLeft.png"); // loading left side player png
     playerTexRight.loadFromFile("sprites/mouthOpenRight.png"); // loading default player png
     playerTexUp.loadFromFile("sprites/mouthOpenUp.png"); // loading upwards player png
@@ -820,6 +824,19 @@ void *GAMEINIT(void *arg) { // main game thread
         playerArgs.PPL.push_back(&ppl[i]);
     playerArgs.menu = &menuObj;
 
+    int initialTotalGhost = 3;
+
+    GHOSTARGS ghostArgs[initialTotalGhost];
+    GHOST *ghosts[initialTotalGhost];
+
+    for (int i = 0; i < initialTotalGhost; i++) {
+        ghosts[i] = new GHOST(ghostTextures[i], i, i);
+        ghostArgs[i].ghost = ghosts[i];
+        ghostArgs[i].SBL.push_back(&sbl[0]);
+        ghostArgs[i].SBL.push_back(&sbl[1]);
+        ghostArgs[i].player = &playerObj;
+    }
+
     pthread_attr_t detachProp; // setting detachable property
     pthread_attr_init(&detachProp); // initializing that property
     pthread_attr_setdetachstate(&detachProp, PTHREAD_CREATE_DETACHED); // making it detachable
@@ -836,6 +853,14 @@ void *GAMEINIT(void *arg) { // main game thread
     displayScoreString.setString("Score: ");
     displayScoreString.setFillColor(Color::White);
     displayScoreString.setPosition(100, 50);
+
+    //to display the string "Lives" on the upper left corner
+    Text displayLivesString;
+    displayLivesString.setFont(font);
+    displayLivesString.setCharacterSize(30);
+    displayLivesString.setString("Lives: ");
+    displayLivesString.setFillColor(Color::White);
+    displayLivesString.setPosition(850, 50);
 
     //to display the value of score on screen
     Text displayScore;
@@ -857,7 +882,6 @@ void *GAMEINIT(void *arg) { // main game thread
     clock.restart();
     while (gameWindow.isOpen()) {
         Event event;
-
         while (gameWindow.pollEvent(event)) { // checking for window close command
             if (event.type == Event::Closed)
                 gameWindow.close();
@@ -963,7 +987,9 @@ void *GAMEINIT(void *arg) { // main game thread
                 clock.restart();
             }
         }
-        
+        else if (isGameOver) {
+            break;
+        }
         gameWindow.clear(); // clearing the buffer window
         if (isMenu) {
             gameWindow.draw(menuBackground);
@@ -977,11 +1003,17 @@ void *GAMEINIT(void *arg) { // main game thread
             DRAWMAZE(gameWindow, Food, mazeBox); // Drawing the maze with food and mazeBoxes
             for (int i = 0; i < initialTotalGhost; i++)
                 gameWindow.draw(ghosts[i]->getSprite());
+            for (int i = 0; i < totalLives; i++)
+                gameWindow.draw(heartChain[i]);
             gameWindow.draw(playerObj.getSprite());
             gameWindow.draw(displayScoreString);
             displayScore.setString(to_string(playerObj.getScore())); //converting score to string so that it can be displayed
             gameWindow.draw(displayScore);
+            gameWindow.draw(displayLivesString);
         }   
+        else if (isGameOver) {
+
+        }
         gameWindow.display(); // swapping the buffer window with main window
     }
 
