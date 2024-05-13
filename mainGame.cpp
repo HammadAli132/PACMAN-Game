@@ -55,10 +55,8 @@ Texture blueGhostTex;
 // this is our circular food
 CircleShape Food(5.0f); 
 RectangleShape intelligentGhostTarget(Vector2f(50.0f, 50.0f));
-pthread_mutex_t objectMovementSynchronisor;
-pthread_mutex_t pathFinder;
-pthread_mutex_t pathIlluminator;
-pthread_mutex_t ghostMover;
+pthread_mutex_t mutex1;
+pthread_mutex_t mutex2;
 int PlayerX = 1;
 int PlayerY = 15;
 int totalThreads = 1;
@@ -237,7 +235,6 @@ void *PLAYERTHREAD(void *arg){
     clockForSB.restart();
     while(!threadExit){
         collisionDetected = false;
-        pthread_mutex_lock(&objectMovementSynchronisor);
         if (isMenu) {
             if (moveCursorUp) {
                 cout << "Cursor should move up" << endl;
@@ -262,6 +259,7 @@ void *PLAYERTHREAD(void *arg){
             }
         }
         else if (isGamePlay) {
+            pthread_mutex_lock(&mutex1);
             if (ghostAtePacman && !playerGotPowerUp) {
                 playerArgs->player->getSprite().setPosition(PLAYERPOSX * CELLSIZE + 100, PLAYERPOSY * CELLSIZE + 100);
                 ghostAtePacman = false;
@@ -271,7 +269,7 @@ void *PLAYERTHREAD(void *arg){
                     isGameOver = true;
                 }
             }
-
+            pthread_mutex_unlock(&mutex1);
             if (playerArgs->player->getSprite().getPosition().x == -50) // if player moves out from left portal
                 playerArgs->player->getSprite().setPosition(GRIDWIDTH + 200, 500);
             else if (playerArgs->player->getSprite().getPosition().x == GRIDWIDTH + 200) // if player moves out from right portal
@@ -405,7 +403,6 @@ void *PLAYERTHREAD(void *arg){
                 intelligentGhostTarget.setPosition(playerArgs->player->getSprite().getPosition().x, playerArgs->player->getSprite().getPosition().y);
             }
         }
-        pthread_mutex_unlock(&objectMovementSynchronisor);
         sleep(milliseconds(5));
     }
     exitedThread++;
@@ -520,6 +517,7 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
         }
         ghostArgs->ghost->ghostCanMove = false;
     }
+    pthread_mutex_lock(&mutex1);
     if (!playerGotPowerUp && ghostBounds.intersects(ghostArgs->player->getSprite().getGlobalBounds())) {
         ghostAtePacman = true;
     }
@@ -530,8 +528,10 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
         collisionDetected = false;
         ghostArgs->ghost->getSprite().setPosition(GHOSTHOMEX * CELLSIZE + 100, GHOSTHOMEY * CELLSIZE + 100);
     }
+    pthread_mutex_unlock(&mutex1);
     for (int i = 0; i < 2; i++) {
         if (!ghostArgs->ghost->ghostHasSpeedBoost && ghostArgs->SBL[i]->isDisplayed && ghostPosX == ghostArgs->SBL[i]->x && ghostPosY == ghostArgs->SBL[i]->y) {
+            pthread_mutex_lock(&mutex1);
             if (maze1[ghostPosY][ghostPosX] == 3) {
                 maze1[ghostPosY][ghostPosX] = -99;
                 cout << "Ghost Ate Speed Booster at X: " << ghostPosX << " Y: " << ghostPosY << endl;
@@ -544,6 +544,7 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
                 elapsedTimeForSB = 0;
                 speedBoostersCount--;
             }
+            pthread_mutex_unlock(&mutex1);
         }
     }
 }
@@ -573,7 +574,6 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
     clock.restart();
     while (!threadExit) { // loop iterate until threadExit becomes true
         if (currentGhostToLeave >= ghostArgs->ghost->getID() || leftHome) {
-            pthread_mutex_lock(&objectMovementSynchronisor);
             if (isGamePlay) {
                 if (playerGotPowerUp) {
                     ghostArgs->ghost->changeTexture(blueGhostTex);
@@ -697,7 +697,6 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
                 MOVETHEGHOST(ghostArgs);
             }
             }
-            pthread_mutex_unlock(&objectMovementSynchronisor);
             sleep(milliseconds(5));
         }
     }
@@ -887,7 +886,7 @@ void *GAMEINIT(void *arg) { // main game thread
                 gameWindow.close();
         }
         if (isMenu) {
-            pthread_mutex_lock(&objectMovementSynchronisor);
+            pthread_mutex_lock(&mutex1);
             if(Keyboard::isKeyPressed(Keyboard::Up)) {
                 if (!keyPressed) {
                     moveCursorUp = true;
@@ -907,10 +906,10 @@ void *GAMEINIT(void *arg) { // main game thread
             }
             else if (keyPressed)
                 keyPressed = false;
-            pthread_mutex_unlock(&objectMovementSynchronisor);
+            pthread_mutex_unlock(&mutex1);
         }
         else if (isGamePlay) {// taking user input
-            pthread_mutex_lock(&objectMovementSynchronisor);
+            pthread_mutex_lock(&mutex1);
             if(Keyboard::isKeyPressed(Keyboard::W) && playerObj.currentDir != 'W') {
                 playerObj.prevDir = playerObj.currentDir;
                 playerObj.currentDir = 'W';
@@ -953,7 +952,7 @@ void *GAMEINIT(void *arg) { // main game thread
                 clockForSB.restart();
                 elapsedTimeForSB = 0;
             }
-            pthread_mutex_unlock(&objectMovementSynchronisor);
+            pthread_mutex_unlock(&mutex1);
             if(clock.getElapsedTime().asSeconds() >= changeMouthTimer && mouthOpened){
                 if(playerObj.currentDir == 'W'){
                     playerObj.changeTexture(playerTexUpClose);   
@@ -1034,9 +1033,6 @@ int main()
         if (threadExit && exitedThread == totalThreads)
             break;
     }
-    pthread_mutex_destroy(&objectMovementSynchronisor);
-    pthread_mutex_destroy(&pathFinder);
-    pthread_mutex_destroy(&pathIlluminator);
-    pthread_mutex_destroy(&ghostMover);
+    pthread_mutex_destroy(&mutex1);
     return 0;
 }
