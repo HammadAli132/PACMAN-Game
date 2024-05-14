@@ -978,7 +978,7 @@ void *GAMEINIT(void *arg) { // main game thread
     pthread_attr_destroy(&detachProp);
 
     Music song;
-    song.openFromFile("songs/gamePlaySong.wav");
+    song.openFromFile("songs/menuSong.wav");
     song.play();
 
     bool mouthOpened = true;
@@ -1184,3 +1184,337 @@ int main()
     sem_destroy(&producerConsumerForKeyPermit);
     return 0;
 }
+
+// int main() {
+//     pthread_mutex_init(&inputHandler, NULL);
+//     pthread_mutex_init(&collisionDetector, NULL);
+//     sem_init(&producerConsumerForPacman, 0, 1);
+//     sem_init(&producerConsumerForGhost, 0, 1);
+//     sem_init(&producerConsumerForKeyPermit, 0, 1);
+//     RenderWindow gameWindow(VideoMode(GRIDWIDTH + 200, GRIDHEIGHT + 200), "PACMAN FURY", Style::Default);
+    
+//     box.loadFromFile("sprites/box.png"); // loading the texture with maze.png
+//     mazeBox.setTexture(box); // setting the Game Grid Sprite to maze texture
+//     mazeBox.scale(5.0f, 5.0f); // scaling the sprite accoring to the cell size to fit in the screen
+
+//     Texture menuBG;
+//     menuBG.loadFromFile("images/BG.jpg");
+//     Texture mainBG;
+//     mainBG.loadFromFile("images/menuBackground.jpg");
+
+//     Sprite menuBackground;
+//     menuBackground.setTexture(menuBG);
+//     Sprite mainBackground;
+//     mainBackground.setTexture(mainBG);
+
+//     Texture keyText;
+//     keyText.loadFromFile("sprites/key.png");
+//     key.setTexture(keyText);
+
+//     Texture permitText;
+//     permitText.loadFromFile("sprites/permit.png");
+//     permit.setTexture(permitText);
+//     permit.setScale(5, 5);
+
+//     Texture life;
+//     life.loadFromFile("sprites/lives.png");
+//     for (int i = 0; i < 3; i++) {
+//         lives[i].setTexture(life);
+//         lives[i].setPosition(980 + (i * 60), 50);
+//         lives[i].setScale(0.12, 0.12);
+//         heartChain.push_back(lives[i]);
+//     }
+
+//     // loading up textures for eatables
+//     Texture booster;
+//     booster.loadFromFile("sprites/ghostBooster.png");
+//     boost.setTexture(booster);
+//     boost.setScale(0.4167f, 0.4167f);
+//     Texture powerUp;
+//     powerUp.loadFromFile("sprites/cherry.png");
+//     power.setTexture(powerUp);
+//     power.setScale(0.2778f, 0.2778f);
+
+//     Texture ghostTextures[4];
+//     ghostTextures[0].loadFromFile("sprites/redGhost.png");
+//     ghostTextures[1].loadFromFile("sprites/greenGhost.png");
+//     ghostTextures[2].loadFromFile("sprites/yellowGhost.png");
+//     ghostTextures[3].loadFromFile("sprites/pinkGhost.png");
+
+//     blueGhostTex.loadFromFile("sprites/blueGhost.png");
+
+//     // creating vector of PPL and SBL to pass them in playerArgs
+//     POWERPELLETLOCATIONS ppl[4];
+//     ppl[0].x = 1, ppl[0].y = 1; 
+//     ppl[1].x = 14, ppl[1].y = 3; 
+//     ppl[2].x = 19, ppl[2].y = 8; 
+//     ppl[3].x = 6, ppl[3].y = 13; 
+
+//     SPEEDBOOSTERLOCATIONS sbl[2];
+//     sbl[0].x = 19, sbl[0].y = 1;
+//     sbl[1].x = 4, sbl[1].y = 11;
+
+//     playerTexLeft.loadFromFile("sprites/mouthOpenLeft.png"); // loading left side player png
+//     playerTexRight.loadFromFile("sprites/mouthOpenRight.png"); // loading default player png
+//     playerTexUp.loadFromFile("sprites/mouthOpenUp.png"); // loading upwards player png
+//     playerTexDown.loadFromFile("sprites/mouthOpenDown.png"); // loading downwards player png
+
+//     playerTexLeftClose.loadFromFile("sprites/leftMouthClose.png"); // loading left side player png
+//     playerTexRightClose.loadFromFile("sprites/rightMouthClose.png"); // loading default player png
+//     playerTexUpClose.loadFromFile("sprites/upMouthClose.png"); // loading upwards player png
+//     playerTexDownClose.loadFromFile("sprites/downMouthClose.png"); // loading downwards player png
+
+//     pointer.setTexture(playerTexLeft);
+//     pointer.setPosition(800, 250);
+
+//     PLAYER playerObj(playerTexRight); // creating player obj,mkmlkjj
+//     MENU menuObj;
+
+//     // setting up player's args
+//     PLAYERARGS playerArgs;
+//     playerArgs.player = &playerObj;
+//     for (int i = 0; i < 4; i++)
+//         playerArgs.PPL.push_back(&ppl[i]);
+//     playerArgs.menu = &menuObj;
+
+//     int initialTotalGhost = 3;
+
+//     GHOSTARGS ghostArgs[initialTotalGhost];
+//     GHOST *ghosts[initialTotalGhost];
+
+//     for (int i = 0; i < initialTotalGhost; i++) {
+//         ghosts[i] = new GHOST(ghostTextures[i], i, i);
+//         ghostArgs[i].ghost = ghosts[i];
+//         ghostArgs[i].SBL.push_back(&sbl[0]);
+//         ghostArgs[i].SBL.push_back(&sbl[1]);
+//         ghostArgs[i].player = &playerObj;
+//         if (ghosts[i]->canBeMadeFast)
+//             cout << "Ghost with id: " << i << " can be made fast." << endl;
+//     }
+
+//     pthread_attr_t detachProp; // setting detachable property
+//     pthread_attr_init(&detachProp); // initializing that property
+//     pthread_attr_setdetachstate(&detachProp, PTHREAD_CREATE_DETACHED); // making it detachable
+//     pthread_t playerThread; 
+//     pthread_create(&playerThread, &detachProp, PLAYERTHREAD, &playerArgs); // creating a detachable player thread
+//     totalThreads++;
+
+//     //to display the string "Score" on the upper left corner
+//     Text displayScoreString;
+//     Font font;
+//     font.loadFromFile("fonts/normal.ttf");
+//     displayScoreString.setFont(font);
+//     displayScoreString.setCharacterSize(30);
+//     displayScoreString.setString("Score: ");
+//     displayScoreString.setFillColor(Color::White);
+//     displayScoreString.setPosition(100, 50);
+
+//     //to display the string "Lives" on the upper left corner
+//     Text displayLivesString;
+//     displayLivesString.setFont(font);
+//     displayLivesString.setCharacterSize(30);
+//     displayLivesString.setString("Lives: ");
+//     displayLivesString.setFillColor(Color::White);
+//     displayLivesString.setPosition(850, 50);
+
+//     //to display the value of score on screen
+//     Text displayScore;
+//     displayScore.setFont(font);
+//     displayScore.setCharacterSize(30);
+//     displayScore.setFillColor(Color::White);
+//     displayScore.setPosition(250, 50);
+
+//     pthread_t ghostThread[initialTotalGhost]; 
+//     for (int i = 0; i < initialTotalGhost; i++) {
+//         pthread_create(&ghostThread[i], &detachProp, GHOSTTHREAD, &ghostArgs[i]); // creating a detachable ghost thread
+//         totalThreads++;
+//     }
+//     pthread_attr_destroy(&detachProp);
+
+//     Music song;
+//     song.openFromFile("songs/gamePlaySong.wav");
+//     song.play();
+
+//     bool mouthOpened = true;
+//     Clock clock;
+//     float changeMouthTimer = 0.2f;
+//     clock.restart();
+//     while (gameWindow.isOpen()) {
+//         Event event;
+//         while (gameWindow.pollEvent(event)) { // checking for window close command
+//             if (event.type == Event::Closed)
+//                 gameWindow.close();
+//         }
+//         if (isMenu) {
+//             pthread_mutex_lock(&inputHandler);
+//             if(Keyboard::isKeyPressed(Keyboard::Up)) {
+//                 if (!keyPressed) {
+//                     moveCursorUp = true;
+//                     keyPressed = true;
+//                 }
+//                 moveCursorDown = false;
+//             }
+//             else if(Keyboard::isKeyPressed(Keyboard::Down)) {
+//                 moveCursorUp = false;
+//                 if (!keyPressed) {
+//                     moveCursorDown = true;
+//                     keyPressed = true;
+//                 }
+//             }
+//             else if(Keyboard::isKeyPressed(Keyboard::Enter)) {
+//                 pressedEnter = true;
+//             }
+//             else if (keyPressed)
+//                 keyPressed = false;
+//             pthread_mutex_unlock(&inputHandler);
+//         }
+//         else if (isGamePlay) {// taking user input
+//             pthread_mutex_lock(&inputHandler);
+//             if(Keyboard::isKeyPressed(Keyboard::W) && playerObj.currentDir != 'W') {
+//                 playerObj.prevDir = playerObj.currentDir;
+//                 playerObj.currentDir = 'W';
+//             }
+//             else if(Keyboard::isKeyPressed(Keyboard::S) && playerObj.currentDir != 'S') {
+//                 playerObj.prevDir = playerObj.currentDir;
+//                 playerObj.currentDir = 'S';
+//             }
+//             else if(Keyboard::isKeyPressed(Keyboard::A) && playerObj.currentDir != 'A') {
+//                 playerObj.prevDir = playerObj.currentDir;
+//                 playerObj.currentDir = 'A';
+//             }
+//             else if(Keyboard::isKeyPressed(Keyboard::D) && playerObj.currentDir != 'D') {
+//                 playerObj.prevDir = playerObj.currentDir;
+//                 playerObj.currentDir = 'D';
+//             }
+//             pthread_mutex_unlock(&inputHandler);
+
+//             sem_wait(&producerConsumerForPacman);
+//             elapsedTimeForPP += clockForPP.getElapsedTime().asSeconds();
+//             if (powerPelletsCount < 4 && elapsedTimeForPP >= displayPPAndSBInterval) {
+//                 powerPelletsCount++;
+//                 srand(time(0) ^ pthread_self());
+//                 int pplIndex = rand() % 4;
+//                 while (ppl[pplIndex].isDisplayed)
+//                     pplIndex = rand() % 4;
+//                 ppl[pplIndex].isDisplayed = true;
+//                 maze1[ppl[pplIndex].y][ppl[pplIndex].x] = 4; // setting food for pacman
+//                 clockForPP.restart();
+//                 elapsedTimeForPP = 0;
+//             }
+//             sem_post(&producerConsumerForPacman);
+
+//             sem_wait(&producerConsumerForGhost);
+//             elapsedTimeForSB += clockForSB.getElapsedTime().asSeconds();
+//             if (speedBoostersCount < 2 && elapsedTimeForSB >= displayPPAndSBInterval) {
+//                 speedBoostersCount++;
+//                 srand(time(0) ^ pthread_self());
+//                 int sblIndex = rand() % 2;
+//                 while (sbl[sblIndex].isDisplayed)
+//                     sblIndex = rand() % 2;
+//                 sbl[sblIndex].isDisplayed = true;
+//                 maze1[sbl[sblIndex].y][sbl[sblIndex].x] = 3; // setting speed booster for ghosts
+//                 clockForSB.restart();
+//                 elapsedTimeForSB = 0;
+//             }
+//             sem_post(&producerConsumerForGhost);
+
+//             sem_wait(&producerConsumerForKeyPermit);
+//             keyElapsedTime += clockForKey.getElapsedTime().asSeconds();
+//             if (keyCount < 2 && keyElapsedTime >= 3000) {
+//                 keyCount++;
+//                 srand(time(0) ^ pthread_self());
+//                 int keyPos = rand() % 6;
+//                 while (maze1[positionsInsideGhostHouse[keyPos].row][positionsInsideGhostHouse[keyPos].col] == 5 || maze1[positionsInsideGhostHouse[keyPos].row][positionsInsideGhostHouse[keyPos].col] == 6)
+//                     keyPos = rand() % 6;
+//                 maze1[positionsInsideGhostHouse[keyPos].row][positionsInsideGhostHouse[keyPos].col] = 5; // setting key for ghosts
+//                 clockForKey.restart();
+//                 keyElapsedTime = 0;
+//             }
+//             sem_post(&producerConsumerForKeyPermit);
+
+//             sem_wait(&producerConsumerForKeyPermit);
+//             permitElapsedTime += clockForPermit.getElapsedTime().asSeconds();
+//             if (permitCount < 2 && permitElapsedTime >= 4000) {
+//                 permitCount++;
+//                 srand(time(0) ^ pthread_self());
+//                 int permitPos = rand() % 6;
+//                 while (maze1[positionsInsideGhostHouse[permitPos].row][positionsInsideGhostHouse[permitPos].col] == 5 || maze1[positionsInsideGhostHouse[permitPos].row][positionsInsideGhostHouse[permitPos].col] == 6)
+//                     permitPos = rand() % 6;
+//                 maze1[positionsInsideGhostHouse[permitPos].row][positionsInsideGhostHouse[permitPos].col] = 6; // setting permit for ghosts
+//                 clockForPermit.restart();
+//                 permitElapsedTime = 0;
+//             }
+//             sem_post(&producerConsumerForKeyPermit);
+
+//             if(clock.getElapsedTime().asSeconds() >= changeMouthTimer && mouthOpened){
+//                 if(playerObj.currentDir == 'W'){
+//                     playerObj.changeTexture(playerTexUpClose);   
+//                 }
+//                 else if(playerObj.currentDir == 'S'){
+//                     playerObj.changeTexture(playerTexDownClose);   
+//                 }
+//                 else if(playerObj.currentDir == 'A'){
+//                     playerObj.changeTexture(playerTexLeftClose);    
+//                 }
+//                 else if(playerObj.currentDir == 'D'){
+//                     playerObj.changeTexture(playerTexRightClose);    
+//                 }
+//                 mouthOpened = false;
+//                 clock.restart();
+//             }
+//             else if(clock.getElapsedTime().asSeconds() >= changeMouthTimer && !mouthOpened){
+//                 if(playerObj.currentDir == 'W'){
+//                     playerObj.changeTexture(playerTexUp);
+//                 }
+//                 else if(playerObj.currentDir == 'S'){
+//                     playerObj.changeTexture(playerTexDown);
+//                 }
+//                 else if(playerObj.currentDir == 'A'){
+//                     playerObj.changeTexture(playerTexLeft);
+//                 }
+//                 else if(playerObj.currentDir == 'D'){
+//                     playerObj.changeTexture(playerTexRight);
+//                 }
+//                 mouthOpened = true;
+//                 clock.restart();
+//             }
+//         }
+//         else if (isGameOver) {
+//             break;
+//         }
+//         gameWindow.clear(); // clearing the buffer window
+//         if (isMenu) {
+//             gameWindow.draw(menuBackground);
+//             gameWindow.draw(menuObj.heading);
+//             for (int i = 0; i < 3; i++)
+//                 gameWindow.draw(menuObj.option[i]);
+//             gameWindow.draw(pointer);
+//         }
+//         else if (isGamePlay) {
+//             gameWindow.draw(mainBackground);
+//             DRAWMAZE(gameWindow, Food, mazeBox); // Drawing the maze with food and mazeBoxes
+//             for (int i = 0; i < initialTotalGhost; i++)
+//                 gameWindow.draw(ghosts[i]->getSprite());
+//             for (int i = 0; i < totalLives; i++)
+//                 gameWindow.draw(heartChain[i]);
+//             gameWindow.draw(playerObj.getSprite());
+//             gameWindow.draw(displayScoreString);
+//             displayScore.setString(to_string(playerObj.getScore())); //converting score to string so that it can be displayed
+//             gameWindow.draw(displayScore);
+//             gameWindow.draw(displayLivesString);
+//         }   
+//         else if (isGameOver) {
+
+//         }
+//         gameWindow.display(); // swapping the buffer window with main window
+//     }
+
+//     threadExit = true;
+//     exitedThread++;
+//     pthread_mutex_destroy(&inputHandler);
+//     pthread_mutex_destroy(&collisionDetector);
+//     sem_destroy(&producerConsumerForPacman);
+//     sem_destroy(&producerConsumerForGhost);
+//     sem_destroy(&producerConsumerForKeyPermit);
+//     return 0;
+// }
