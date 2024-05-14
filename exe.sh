@@ -1,2 +1,2 @@
-g++ mainGame.cpp -pthread -lsfml-graphics -lsfml-window -lsfml-system
+g++ mainGame.cpp -pthread -lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio
 ./a.out

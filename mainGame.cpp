@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <bits/stdc++.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -109,6 +110,7 @@ public:
     float ghostElapsedTime = 0;
     bool keyPicked = false;
     bool permitPicked = false;
+    bool canBeMadeFast;
 
     GHOST(Texture &text, int t, int m = 0, float sp = 0) { // Constructor
         this->sprite.setTexture(text);
@@ -119,6 +121,11 @@ public:
         this->speed = sp;
         target = make_pair(10, 6);
         this->defaultText = text;
+        srand(time(0) ^ t);
+        if (rand() % 2)
+            this->canBeMadeFast = true;
+        else
+            this->canBeMadeFast = false;
     } 
     void changeTexture(Texture& tex){
         this->sprite.setTexture(tex);
@@ -555,7 +562,7 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
     pthread_mutex_unlock(&collisionDetector);
     for (int i = 0; i < 2; i++) {
         sem_wait(&producerConsumerForGhost);
-        if (!ghostArgs->ghost->ghostHasSpeedBoost && ghostArgs->SBL[i]->isDisplayed && ghostPosX == ghostArgs->SBL[i]->x && ghostPosY == ghostArgs->SBL[i]->y) {
+        if (!ghostArgs->ghost->ghostHasSpeedBoost && ghostArgs->ghost->canBeMadeFast && ghostArgs->SBL[i]->isDisplayed && ghostPosX == ghostArgs->SBL[i]->x && ghostPosY == ghostArgs->SBL[i]->y) {
             if (maze1[ghostPosY][ghostPosX] == 3) {
                 maze1[ghostPosY][ghostPosX] = -99;
                 ghostArgs->ghost->ghostHasSpeedBoost = true;
@@ -927,6 +934,8 @@ void *GAMEINIT(void *arg) { // main game thread
         ghostArgs[i].SBL.push_back(&sbl[0]);
         ghostArgs[i].SBL.push_back(&sbl[1]);
         ghostArgs[i].player = &playerObj;
+        if (ghosts[i]->canBeMadeFast)
+            cout << "Ghost with id: " << i << " can be made fast." << endl;
     }
 
     pthread_attr_t detachProp; // setting detachable property
@@ -967,6 +976,10 @@ void *GAMEINIT(void *arg) { // main game thread
         totalThreads++;
     }
     pthread_attr_destroy(&detachProp);
+
+    Music song;
+    song.openFromFile("songs/gamePlaySong.wav");
+    song.play();
 
     bool mouthOpened = true;
     Clock clock;
