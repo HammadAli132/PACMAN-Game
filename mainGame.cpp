@@ -1,6 +1,7 @@
 #include <SFML/Graphics.hpp>
 #include <bits/stdc++.h>
 #include <pthread.h>
+#include <semaphore.h>
 using namespace std;
 using namespace sf;
 
@@ -57,6 +58,8 @@ CircleShape Food(5.0f);
 RectangleShape intelligentGhostTarget(Vector2f(50.0f, 50.0f));
 pthread_mutex_t mutex1;
 pthread_mutex_t mutex2;
+sem_t producerConsumerForPacman;
+sem_t producerConsumerForGhost;
 int PlayerX = 1;
 int PlayerY = 15;
 int totalThreads = 1;
@@ -255,11 +258,17 @@ void *PLAYERTHREAD(void *arg){
                     clockForPP.restart();
                     clockForSB.restart();
                 }
+                if (pointer.getPosition().y == 450) {
+                    isMenu = false;
+                    isGamePlay = false;
+                    isGameOver = true;
+                    break;
+                }
                 pressedEnter = false;
             }
         }
         else if (isGamePlay) {
-            pthread_mutex_lock(&mutex1);
+            pthread_mutex_lock(&mutex2);
             if (ghostAtePacman && !playerGotPowerUp) {
                 playerArgs->player->getSprite().setPosition(PLAYERPOSX * CELLSIZE + 100, PLAYERPOSY * CELLSIZE + 100);
                 ghostAtePacman = false;
@@ -269,7 +278,7 @@ void *PLAYERTHREAD(void *arg){
                     isGameOver = true;
                 }
             }
-            pthread_mutex_unlock(&mutex1);
+            pthread_mutex_unlock(&mutex2);
             if (playerArgs->player->getSprite().getPosition().x == -50) // if player moves out from left portal
                 playerArgs->player->getSprite().setPosition(GRIDWIDTH + 200, 500);
             else if (playerArgs->player->getSprite().getPosition().x == GRIDWIDTH + 200) // if player moves out from right portal
@@ -295,6 +304,7 @@ void *PLAYERTHREAD(void *arg){
                 for(int j = 0; j < gridCols; j++){
                     if (maze1[i][j] == 1) { // checking if maze can be placed here or not
                         mazeBox.setPosition(j * CELLSIZE + 100, i * CELLSIZE + 100); // placing temporary mazeBox at current location
+                        pthread_mutex_lock(&mutex1);
                         if (playerArgs->player->currentDir == 'W'){ // if player is moving rightwards and it collides with walls 
                             if (topRect.intersects(mazeBox.getGlobalBounds())) {
                                 playerArgs->player->currentDir = playerArgs->player->prevDir;
@@ -323,6 +333,7 @@ void *PLAYERTHREAD(void *arg){
                                 collisionDetected = true;
                             }   
                         }
+                        pthread_mutex_unlock(&mutex1);
                     }
                     //detecting player's collision with food
                     else if(maze1[i][j] == 0){
@@ -335,7 +346,8 @@ void *PLAYERTHREAD(void *arg){
                         }
                     }
                     // detecting player's collision with power up
-                    else if(!playerGotPowerUp && maze1[i][j] == 4){
+                    sem_wait(&producerConsumerForPacman);
+                    if(!playerGotPowerUp && maze1[i][j] == 4) {
                         power.setPosition((j * CELLSIZE) + 100, (i * CELLSIZE) + 100); //placing temporary Food at current position
                         FloatRect FoodBounds = power.getGlobalBounds();
                         if(playerBounds.intersects(FoodBounds)){
@@ -353,6 +365,7 @@ void *PLAYERTHREAD(void *arg){
                             clock.restart();
                         }
                     }
+                    sem_post(&producerConsumerForPacman);
                 }           
             }
             // checking collisions with portals        
@@ -517,7 +530,7 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
         }
         ghostArgs->ghost->ghostCanMove = false;
     }
-    pthread_mutex_lock(&mutex1);
+    pthread_mutex_lock(&mutex2);
     if (!playerGotPowerUp && ghostBounds.intersects(ghostArgs->player->getSprite().getGlobalBounds())) {
         ghostAtePacman = true;
     }
@@ -528,10 +541,10 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
         collisionDetected = false;
         ghostArgs->ghost->getSprite().setPosition(GHOSTHOMEX * CELLSIZE + 100, GHOSTHOMEY * CELLSIZE + 100);
     }
-    pthread_mutex_unlock(&mutex1);
+    pthread_mutex_unlock(&mutex2);
     for (int i = 0; i < 2; i++) {
         if (!ghostArgs->ghost->ghostHasSpeedBoost && ghostArgs->SBL[i]->isDisplayed && ghostPosX == ghostArgs->SBL[i]->x && ghostPosY == ghostArgs->SBL[i]->y) {
-            pthread_mutex_lock(&mutex1);
+            sem_wait(&producerConsumerForGhost);
             if (maze1[ghostPosY][ghostPosX] == 3) {
                 maze1[ghostPosY][ghostPosX] = -99;
                 cout << "Ghost Ate Speed Booster at X: " << ghostPosX << " Y: " << ghostPosY << endl;
@@ -544,7 +557,7 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
                 elapsedTimeForSB = 0;
                 speedBoostersCount--;
             }
-            pthread_mutex_unlock(&mutex1);
+            sem_post(&producerConsumerForGhost);
         }
     }
 }
@@ -926,9 +939,10 @@ void *GAMEINIT(void *arg) { // main game thread
                 playerObj.prevDir = playerObj.currentDir;
                 playerObj.currentDir = 'D';
             }
-            elapsedTimeForPP += clockForPP.getElapsedTime().asSeconds();
-            elapsedTimeForSB += clockForSB.getElapsedTime().asSeconds();
+            pthread_mutex_unlock(&mutex1);
 
+            sem_wait(&producerConsumerForPacman);
+            elapsedTimeForPP += clockForPP.getElapsedTime().asSeconds();
             if (powerPelletsCount < 4 && elapsedTimeForPP >= displayPPAndSBInterval) {
                 powerPelletsCount++;
                 srand(time(0) ^ pthread_self());
@@ -940,7 +954,10 @@ void *GAMEINIT(void *arg) { // main game thread
                 clockForPP.restart();
                 elapsedTimeForPP = 0;
             }
+            sem_post(&producerConsumerForPacman);
 
+            sem_wait(&producerConsumerForGhost);
+            elapsedTimeForSB += clockForSB.getElapsedTime().asSeconds();
             if (speedBoostersCount < 2 && elapsedTimeForSB >= displayPPAndSBInterval) {
                 speedBoostersCount++;
                 srand(time(0) ^ pthread_self());
@@ -952,7 +969,7 @@ void *GAMEINIT(void *arg) { // main game thread
                 clockForSB.restart();
                 elapsedTimeForSB = 0;
             }
-            pthread_mutex_unlock(&mutex1);
+            sem_post(&producerConsumerForGhost);
             if(clock.getElapsedTime().asSeconds() >= changeMouthTimer && mouthOpened){
                 if(playerObj.currentDir == 'W'){
                     playerObj.changeTexture(playerTexUpClose);   
@@ -1023,6 +1040,10 @@ void *GAMEINIT(void *arg) { // main game thread
 
 int main()
 {
+    pthread_mutex_init(&mutex1, NULL);
+    pthread_mutex_init(&mutex2, NULL);
+    sem_init(&producerConsumerForPacman, 0, 1);
+    sem_init(&producerConsumerForGhost, 0, 1);
     pthread_t startGame;
     pthread_attr_t detachProp; // setting detachable property
     pthread_attr_init(&detachProp); // initializing that property
@@ -1034,5 +1055,8 @@ int main()
             break;
     }
     pthread_mutex_destroy(&mutex1);
+    pthread_mutex_destroy(&mutex2);
+    sem_destroy(&producerConsumerForPacman);
+    sem_destroy(&producerConsumerForGhost);
     return 0;
 }
