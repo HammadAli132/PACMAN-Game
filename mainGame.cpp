@@ -42,6 +42,7 @@ Sprite power;
 Sprite pointer;
 Sprite lives[3];
 Sprite key;
+Sprite permit;
 vector<Sprite> heartChain = {};
 // these are open mouth textures
 Texture playerTexLeft;
@@ -77,8 +78,8 @@ bool ghostAtePacman = false;
 bool playerGotPowerUp = false;
 bool menuIsBeingDisplayed = true;
 bool isMenu = true, isGamePlay = false, isGameOver = false;
-Clock clockForPP, clockForSB, clockForKeyPermit;
-float elapsedTimeForSB = 0,  elapsedTimeForPP = 0, displayPPAndSBInterval = 5000, keyPermitElapsedTime = 0;
+Clock clockForPP, clockForSB, clockForKey, clockForPermit;
+float elapsedTimeForSB = 0,  elapsedTimeForPP = 0, displayPPAndSBInterval = 5000, keyElapsedTime = 0, permitElapsedTime = 0;
 bool moveCursorUp = false, moveCursorDown = false, keyPressed = false, pressedEnter = false;
 
 struct Point {
@@ -238,14 +239,14 @@ struct GHOSTARGS {
 void *PLAYERTHREAD(void *arg){
     PLAYERARGS *playerArgs = (PLAYERARGS*) arg;
 
-    bool collisionDetected = false; // boolean for collision detection
+    bool ghostPathVectorIsFilled = false; // boolean for collision detection
 
     float elapsedTime = 0, powerUpTime = 3000;
     Clock clock;
     clockForPP.restart();
     clockForSB.restart();
     while(!threadExit){
-        collisionDetected = false;
+        ghostPathVectorIsFilled = false;
         if (isMenu) {
             if (moveCursorUp) {
                 cout << "Cursor should move up" << endl;
@@ -265,7 +266,8 @@ void *PLAYERTHREAD(void *arg){
                     isGamePlay = true;
                     clockForPP.restart();
                     clockForSB.restart();
-                    clockForKeyPermit.restart();
+                    clockForKey.restart();
+                    clockForPermit.restart();
                 }
                 if (pointer.getPosition().y == 450) {
                     isMenu = false;
@@ -318,28 +320,28 @@ void *PLAYERTHREAD(void *arg){
                             if (topRect.intersects(mazeBox.getGlobalBounds())) {
                                 playerArgs->player->currentDir = playerArgs->player->prevDir;
                                 playerArgs->player->prevDir = '-';
-                                collisionDetected = true;
+                                ghostPathVectorIsFilled = true;
                             }
                         }
                         else if(playerArgs->player->currentDir == 'S'){ // if player is moving downwards and it collides with walls
                             if (bottomRect.intersects(mazeBox.getGlobalBounds())) {
                                 playerArgs->player->currentDir = playerArgs->player->prevDir;
                                 playerArgs->player->prevDir = '-';
-                                collisionDetected = true;
+                                ghostPathVectorIsFilled = true;
                             }
                         }
                         else if(playerArgs->player->currentDir == 'A'){ // if player is moving leftwards and it collides with walls
                             if (leftRect.intersects(mazeBox.getGlobalBounds())) {
                                 playerArgs->player->currentDir = playerArgs->player->prevDir;
                                 playerArgs->player->prevDir = '-';
-                                collisionDetected = true;
+                                ghostPathVectorIsFilled = true;
                             }
                         }
                         else if(playerArgs->player->currentDir == 'D'){ // if player is moving upwards and it collides with walls
                             if (rightRect.intersects(mazeBox.getGlobalBounds())) {
                                 playerArgs->player->currentDir = playerArgs->player->prevDir;
                                 playerArgs->player->prevDir = '-';
-                                collisionDetected = true;
+                                ghostPathVectorIsFilled = true;
                             }   
                         }
                         pthread_mutex_unlock(&inputHandler);
@@ -368,7 +370,6 @@ void *PLAYERTHREAD(void *arg){
                                     powerPelletsCount--;
                                     elapsedTimeForPP = 0;
                                     clockForPP.restart();
-                                    cout << "Player Ate PPL at X: " << playerArgs->PPL[k]->x << " Y: " << playerArgs->PPL[k]->y << endl;
                                     break;
                                 }
                             clock.restart();
@@ -380,20 +381,20 @@ void *PLAYERTHREAD(void *arg){
             // checking collisions with portals        
             if (playerArgs->player->getSprite().getPosition().x <= 100) { // collision with left portal
                 if (playerArgs->player->currentDir == 'W' || playerArgs->player->currentDir == 'S') {
-                    collisionDetected = true;
+                    ghostPathVectorIsFilled = true;
                     playerArgs->player->currentDir = playerArgs->player->prevDir;
                     playerArgs->player->prevDir = '-';
                 }
             }
             else if (playerArgs->player->getSprite().getPosition().x >= 1100) { // collision with left portal
                 if (playerArgs->player->currentDir == 'W' || playerArgs->player->currentDir == 'S') {
-                    collisionDetected = true;
+                    ghostPathVectorIsFilled = true;
                     playerArgs->player->currentDir = playerArgs->player->prevDir;
                     playerArgs->player->prevDir = '-';
                 }
             }
 
-            if (!collisionDetected)
+            if (!ghostPathVectorIsFilled)
                 playerArgs->player->prevDir = '-';
             // moving the player accordingly
             if (playerArgs->player->currentDir == 'W') {
@@ -478,7 +479,7 @@ void GETPATHTOTARGET(GHOST *ghost, Point start, Point target) {
     }
 }
 
-void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &leftHome, bool &collisionDetected) {
+void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &leftHome, bool &ghostPathVectorIsFilled) {
     int ghostPosX = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
     int ghostPosY = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE;
     RectangleShape tempTarget(Vector2f(50.0f, 50.0f));
@@ -532,13 +533,10 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
     if (ghostArgs->ghost->currentTarget == ghostArgs->ghost->ghostPath.size()) {
         ghostArgs->ghost->currentTarget = 0;
         foundPath = false;
-        if (ghostArgs->ghost->keyPicked == false) 
-            collisionDetected = false;
-        // if (!leftHome) {
-        //     if (ghostArgs->ghost->getID() >= currentGhostToLeave)
-        //         currentGhostToLeave++;
-        //     leftHome = true;
-        // }
+        if (ghostArgs->ghost->keyPicked && ghostArgs->ghost->permitPicked) 
+            leftHome = true;
+        else
+            ghostPathVectorIsFilled = false;
         ghostArgs->ghost->ghostCanMove = false;
     }
     pthread_mutex_lock(&collisionDetector);
@@ -549,7 +547,9 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
         ghostArgs->ghost->currentTarget = 0;
         leftHome = false;
         foundPath = false;
-        collisionDetected = false;
+        ghostPathVectorIsFilled = false;
+        ghostArgs->ghost->keyPicked = false;
+        ghostArgs->ghost->permitPicked = false;
         ghostArgs->ghost->getSprite().setPosition(GHOSTHOMEX * CELLSIZE + 100, GHOSTHOMEY * CELLSIZE + 100);
     }
     pthread_mutex_unlock(&collisionDetector);
@@ -558,7 +558,6 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
         if (!ghostArgs->ghost->ghostHasSpeedBoost && ghostArgs->SBL[i]->isDisplayed && ghostPosX == ghostArgs->SBL[i]->x && ghostPosY == ghostArgs->SBL[i]->y) {
             if (maze1[ghostPosY][ghostPosX] == 3) {
                 maze1[ghostPosY][ghostPosX] = -99;
-                cout << "Ghost Ate Speed Booster at X: " << ghostPosX << " Y: " << ghostPosY << endl;
                 ghostArgs->ghost->ghostHasSpeedBoost = true;
                 ghostArgs->ghost->ghostClock.restart();
                 ghostArgs->ghost->ghostElapsedTime = 0;
@@ -576,11 +575,25 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
         if (!ghostArgs->ghost->keyPicked && ghostPosX == positionsInsideGhostHouse[i].col && ghostPosY == positionsInsideGhostHouse[i].row) {
             if (maze1[ghostPosY][ghostPosX] == 5) {
                 maze1[ghostPosY][ghostPosX] = -99;
-                cout << "Ghost Ate key at X: " << ghostPosX << " Y: " << ghostPosY << endl;
                 ghostArgs->ghost->keyPicked = true;
-                clockForKeyPermit.restart();
-                keyPermitElapsedTime = 0;
+                cout << "Ghost picked key at X: " << ghostPosX << " Y: " << ghostPosY << endl;
+                clockForKey.restart();
+                keyElapsedTime = 0;
                 keyCount--;
+            }
+        }
+        sem_post(&producerConsumerForKeyPermit);
+    }
+    for (int i = 0; i < 6; i++) {
+        sem_wait(&producerConsumerForKeyPermit);
+        if (!ghostArgs->ghost->permitPicked && ghostArgs->ghost->keyPicked && ghostPosX == positionsInsideGhostHouse[i].col && ghostPosY == positionsInsideGhostHouse[i].row) {
+            if (maze1[ghostPosY][ghostPosX] == 6) {
+                maze1[ghostPosY][ghostPosX] = -99;
+                ghostArgs->ghost->permitPicked = true;
+                cout << "Ghost picked permit at X: " << ghostPosX << " Y: " << ghostPosY << endl;
+                clockForPermit.restart();
+                permitElapsedTime = 0;
+                permitCount--;
             }
         }
         sem_post(&producerConsumerForKeyPermit);
@@ -603,7 +616,7 @@ void MOVETHEGHOST (GHOSTARGS *ghostArgs) {
 
 void *GHOSTTHREAD(void *arg) { // this is the ghost thread
     GHOSTARGS *ghostArgs = (GHOSTARGS *) arg;
-    bool collisionDetected = false; // boolean for collision detection
+    bool ghostPathVectorIsFilled = false; // boolean for collision detection
     bool leftHome = false;
     bool foundPath = false;
     // initially only up ward movement is allowed because the ghost has to move up to come out of the home
@@ -611,120 +624,46 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
     float elapsedTime = 0, pathFindingInterval = 400, speedBoostInterval = 3000;
     clock.restart();
     while (!threadExit) { // loop iterate until threadExit becomes true
-        if (currentGhostToLeave >= ghostArgs->ghost->getID() || leftHome) {
-            if (isGamePlay) {
-                if (playerGotPowerUp) {
-                    ghostArgs->ghost->changeTexture(blueGhostTex);
-                }
-                else {
-                    ghostArgs->ghost->changeTexture(ghostArgs->ghost->defaultText);
-                }
-                if (ghostArgs->ghost->getMode() == 0) { // this is for simple ghost
-                    srand(time(0) ^ pthread_self());
-                    if (!leftHome) {
-                        if (!ghostArgs->ghost->keyPicked && !collisionDetected) {
-                            int newCorner = rand() % 6;
-                            Point ghostPosition, ghostTarget;
-                            ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
-                            ghostTarget.row = positionsInsideGhostHouse[newCorner].row, ghostTarget.col = positionsInsideGhostHouse[newCorner].col;
-                            GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
-                            collisionDetected = true;
-                            ghostArgs->ghost->ghostCanMove = false;
-                        }
-                        ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, collisionDetected);
-                    }
-                    else {
-                        if (!foundPath) {
-                            vector<vector<int>> corners = {{1, 1}, {19, 1}, {1, 15}, {19, 15}};
-                            int newCorner = rand() % 4;
-                            Point ghostPosition, ghostTarget;
-                            ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
-                            ghostTarget.row = corners[newCorner][1], ghostTarget.col = corners[newCorner][0];
-                            GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
-                            foundPath = true;
-                            ghostArgs->ghost->ghostCanMove = false;
-                        }
-                        ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, collisionDetected);
-                    }
-                    if (ghostArgs->ghost->ghostHasSpeedBoost) {
-                        ghostArgs->ghost->ghostElapsedTime += ghostArgs->ghost->ghostClock.getElapsedTime().asSeconds();
-                        if (ghostArgs->ghost->ghostElapsedTime >= speedBoostInterval) {
-                            ghostArgs->ghost->setSpeed(0);
-                            ghostArgs->ghost->ghostHasSpeedBoost = false;
-                        }
-                    }
-                    MOVETHEGHOST(ghostArgs);
-                }
-                else if (ghostArgs->ghost->getMode() == 1) { // this is for a semi intelligent ghost
-                    srand(time(0) ^ pthread_self());
-                    if (!leftHome) {
-                        if (!collisionDetected) {
-                            Point ghostPosition, ghostTarget;
-                            ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
-                            ghostTarget.row = 6, ghostTarget.col = 10;
-                            GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
-                            collisionDetected = true;
-                            ghostArgs->ghost->ghostCanMove = false;
-                        }
-                        ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, collisionDetected);
-                    }
-                    else {
-                        if (!foundPath) {
-                            srand(time(0));
-                            int newX, newY;
-                            do {
-                                newX = rand() % gridCols; // Exclude border cells (0th row and column)
-                                newY = rand() % gridRows; // Exclude border cells (0th row and column)
-                            } while(maze1[newY][newX] == 1 || newY == 0 || newX == 0); // Check if the new position is valid
-                            Point ghostPosition, ghostTarget;
-                            ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
-                            ghostTarget.row = newY, ghostTarget.col = newX;
-                            GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
-                            foundPath = true;
-                            ghostArgs->ghost->ghostCanMove = false;
-                        }
-                        ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, collisionDetected);
-                    }
-                    if (ghostArgs->ghost->ghostHasSpeedBoost) {
-                        ghostArgs->ghost->ghostElapsedTime += ghostArgs->ghost->ghostClock.getElapsedTime().asSeconds();
-                        if (ghostArgs->ghost->ghostElapsedTime >= speedBoostInterval) {
-                            ghostArgs->ghost->setSpeed(0);
-                            ghostArgs->ghost->ghostHasSpeedBoost = false;
-                        }
-                    }
-                    MOVETHEGHOST(ghostArgs);
-                }
-                else if (ghostArgs->ghost->getMode() == 2) { // this is for a fully intelligent ghost
-                elapsedTime += clock.getElapsedTime().asSeconds();
+        if (isGamePlay) {
+            if (playerGotPowerUp) {
+                ghostArgs->ghost->changeTexture(blueGhostTex);
+            }
+            else {
+                ghostArgs->ghost->changeTexture(ghostArgs->ghost->defaultText);
+            }
+            if (ghostArgs->ghost->getMode() == 0) { // this is for simple ghost
+                srand(time(0) ^ pthread_self());
                 if (!leftHome) {
-                    if (!collisionDetected) {
+                    if ((!ghostArgs->ghost->keyPicked || !ghostArgs->ghost->permitPicked) && !ghostPathVectorIsFilled) {
+                        int newCorner = rand() % 6;
+                        Point ghostPosition, ghostTarget;
+                        ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = positionsInsideGhostHouse[newCorner].row, ghostTarget.col = positionsInsideGhostHouse[newCorner].col;
+                        GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
+                        ghostPathVectorIsFilled = true;
+                        ghostArgs->ghost->ghostCanMove = false;
+                    }
+                    else if (!ghostPathVectorIsFilled) {
                         Point ghostPosition, ghostTarget;
                         ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
                         ghostTarget.row = 6, ghostTarget.col = 10;
                         GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
-                        collisionDetected = true;
                         ghostArgs->ghost->ghostCanMove = false;
                     }
-                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, collisionDetected);   
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, ghostPathVectorIsFilled);
                 }
                 else {
                     if (!foundPath) {
-                        ghostArgs->ghost->setTarget(make_pair(PlayerX, PlayerY)); // setting new target for ghost
+                        vector<vector<int>> corners = {{1, 1}, {19, 1}, {1, 15}, {19, 15}};
+                        int newCorner = rand() % 4;
                         Point ghostPosition, ghostTarget;
                         ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
-                        ghostTarget.row = PlayerY, ghostTarget.col = PlayerX;
+                        ghostTarget.row = corners[newCorner][1], ghostTarget.col = corners[newCorner][0];
                         GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
                         foundPath = true;
                         ghostArgs->ghost->ghostCanMove = false;
                     }
-                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, collisionDetected);
-                    if (elapsedTime >= pathFindingInterval) {
-                        ghostArgs->ghost->currentTarget = 0;
-                        foundPath = false;
-                        ghostArgs->ghost->ghostCanMove = false;
-                        elapsedTime = 0;
-                        clock.restart();
-                    }
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, ghostPathVectorIsFilled);
                 }
                 if (ghostArgs->ghost->ghostHasSpeedBoost) {
                     ghostArgs->ghost->ghostElapsedTime += ghostArgs->ghost->ghostClock.getElapsedTime().asSeconds();
@@ -735,9 +674,107 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
                 }
                 MOVETHEGHOST(ghostArgs);
             }
+            else if (ghostArgs->ghost->getMode() == 1) { // this is for a semi intelligent ghost
+                srand(time(0) ^ pthread_self());
+                if (!leftHome) {
+                    if ((!ghostArgs->ghost->keyPicked || !ghostArgs->ghost->permitPicked) && !ghostPathVectorIsFilled) {
+                        int newCorner = rand() % 6;
+                        Point ghostPosition, ghostTarget;
+                        ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = positionsInsideGhostHouse[newCorner].row, ghostTarget.col = positionsInsideGhostHouse[newCorner].col;
+                        GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
+                        ghostPathVectorIsFilled = true;
+                        ghostArgs->ghost->ghostCanMove = false;
+                    }
+                    else if (!ghostPathVectorIsFilled) {
+                        Point ghostPosition, ghostTarget;
+                        ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = 6, ghostTarget.col = 10;
+                        GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
+                        ghostArgs->ghost->ghostCanMove = false;
+                    }
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, ghostPathVectorIsFilled);
+                }
+                else {
+                    if (!foundPath) {
+                        srand(time(0));
+                        int newX, newY;
+                        do {
+                            newX = rand() % gridCols; // Exclude border cells (0th row and column)
+                            newY = rand() % gridRows; // Exclude border cells (0th row and column)
+                        } while(maze1[newY][newX] == 1 || newY == 0 || newX == 0); // Check if the new position is valid
+                        Point ghostPosition, ghostTarget;
+                        ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = newY, ghostTarget.col = newX;
+                        GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
+                        foundPath = true;
+                        ghostArgs->ghost->ghostCanMove = false;
+                    }
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, ghostPathVectorIsFilled);
+                }
+                if (ghostArgs->ghost->ghostHasSpeedBoost) {
+                    ghostArgs->ghost->ghostElapsedTime += ghostArgs->ghost->ghostClock.getElapsedTime().asSeconds();
+                    if (ghostArgs->ghost->ghostElapsedTime >= speedBoostInterval) {
+                        ghostArgs->ghost->setSpeed(0);
+                        ghostArgs->ghost->ghostHasSpeedBoost = false;
+                    }
+                }
+                MOVETHEGHOST(ghostArgs);
             }
-            sleep(milliseconds(5));
+            else if (ghostArgs->ghost->getMode() == 2) { // this is for a fully intelligent ghost
+            elapsedTime += clock.getElapsedTime().asSeconds();
+            if (!leftHome) {
+                if (!leftHome) {
+                    if ((!ghostArgs->ghost->keyPicked || !ghostArgs->ghost->permitPicked) && !ghostPathVectorIsFilled) {
+                        int newCorner = rand() % 6;
+                        Point ghostPosition, ghostTarget;
+                        ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = positionsInsideGhostHouse[newCorner].row, ghostTarget.col = positionsInsideGhostHouse[newCorner].col;
+                        GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
+                        ghostPathVectorIsFilled = true;
+                        ghostArgs->ghost->ghostCanMove = false;
+                    }
+                    else if (!ghostPathVectorIsFilled) {
+                        Point ghostPosition, ghostTarget;
+                        ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                        ghostTarget.row = 6, ghostTarget.col = 10;
+                        GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
+                        ghostArgs->ghost->ghostCanMove = false;
+                    }
+                    ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, ghostPathVectorIsFilled);
+                }
+                ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, ghostPathVectorIsFilled);   
+            }
+            else {
+                if (!foundPath) {
+                    ghostArgs->ghost->setTarget(make_pair(PlayerX, PlayerY)); // setting new target for ghost
+                    Point ghostPosition, ghostTarget;
+                    ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
+                    ghostTarget.row = PlayerY, ghostTarget.col = PlayerX;
+                    GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
+                    foundPath = true;
+                    ghostArgs->ghost->ghostCanMove = false;
+                }
+                ILLUMINATETHEPATHTOTARGET(ghostArgs, foundPath, leftHome, ghostPathVectorIsFilled);
+                if (elapsedTime >= pathFindingInterval) {
+                    ghostArgs->ghost->currentTarget = 0;
+                    foundPath = false;
+                    ghostArgs->ghost->ghostCanMove = false;
+                    elapsedTime = 0;
+                    clock.restart();
+                }
+            }
+            if (ghostArgs->ghost->ghostHasSpeedBoost) {
+                ghostArgs->ghost->ghostElapsedTime += ghostArgs->ghost->ghostClock.getElapsedTime().asSeconds();
+                if (ghostArgs->ghost->ghostElapsedTime >= speedBoostInterval) {
+                    ghostArgs->ghost->setSpeed(0);
+                    ghostArgs->ghost->ghostHasSpeedBoost = false;
+                }
+            }
+            MOVETHEGHOST(ghostArgs);
         }
+        }
+        sleep(milliseconds(5));
     }
     exitedThread++;
     pthread_exit(NULL);
@@ -765,6 +802,10 @@ void DRAWMAZE(RenderWindow &window, CircleShape food, Sprite mazeBox) { // this 
             else if (maze1[i][j] == 5) {
                 key.setPosition((j * CELLSIZE) + 100, (i * CELLSIZE) + 100);
                 window.draw(key);
+            }
+            else if (maze1[i][j] == 6) {
+                permit.setPosition((j * CELLSIZE) + 100, (i * CELLSIZE) + 100);
+                window.draw(permit);
             }
         }
     }
@@ -808,6 +849,11 @@ void *GAMEINIT(void *arg) { // main game thread
     Texture keyText;
     keyText.loadFromFile("sprites/key.png");
     key.setTexture(keyText);
+
+    Texture permitText;
+    permitText.loadFromFile("sprites/permit.png");
+    permit.setTexture(permitText);
+    permit.setScale(5, 5);
 
     Texture life;
     life.loadFromFile("sprites/lives.png");
@@ -870,13 +916,13 @@ void *GAMEINIT(void *arg) { // main game thread
         playerArgs.PPL.push_back(&ppl[i]);
     playerArgs.menu = &menuObj;
 
-    int initialTotalGhost = 1;
+    int initialTotalGhost = 3;
 
     GHOSTARGS ghostArgs[initialTotalGhost];
     GHOST *ghosts[initialTotalGhost];
 
     for (int i = 0; i < initialTotalGhost; i++) {
-        ghosts[i] = new GHOST(ghostTextures[i], i, 0);
+        ghosts[i] = new GHOST(ghostTextures[i], i, i);
         ghostArgs[i].ghost = ghosts[i];
         ghostArgs[i].SBL.push_back(&sbl[0]);
         ghostArgs[i].SBL.push_back(&sbl[1]);
@@ -1006,14 +1052,30 @@ void *GAMEINIT(void *arg) { // main game thread
             sem_post(&producerConsumerForGhost);
 
             sem_wait(&producerConsumerForKeyPermit);
-            keyPermitElapsedTime += clockForKeyPermit.getElapsedTime().asSeconds();
-            if (keyCount < 2 && keyPermitElapsedTime >= 3000) {
+            keyElapsedTime += clockForKey.getElapsedTime().asSeconds();
+            if (keyCount < 2 && keyElapsedTime >= 3000) {
                 keyCount++;
                 srand(time(0) ^ pthread_self());
                 int keyPos = rand() % 6;
+                while (maze1[positionsInsideGhostHouse[keyPos].row][positionsInsideGhostHouse[keyPos].col] == 5 || maze1[positionsInsideGhostHouse[keyPos].row][positionsInsideGhostHouse[keyPos].col] == 6)
+                    keyPos = rand() % 6;
                 maze1[positionsInsideGhostHouse[keyPos].row][positionsInsideGhostHouse[keyPos].col] = 5; // setting key for ghosts
-                clockForKeyPermit.restart();
-                keyPermitElapsedTime = 0;
+                clockForKey.restart();
+                keyElapsedTime = 0;
+            }
+            sem_post(&producerConsumerForKeyPermit);
+
+            sem_wait(&producerConsumerForKeyPermit);
+            permitElapsedTime += clockForPermit.getElapsedTime().asSeconds();
+            if (permitCount < 2 && permitElapsedTime >= 4000) {
+                permitCount++;
+                srand(time(0) ^ pthread_self());
+                int permitPos = rand() % 6;
+                while (maze1[positionsInsideGhostHouse[permitPos].row][positionsInsideGhostHouse[permitPos].col] == 5 || maze1[positionsInsideGhostHouse[permitPos].row][positionsInsideGhostHouse[permitPos].col] == 6)
+                    permitPos = rand() % 6;
+                maze1[positionsInsideGhostHouse[permitPos].row][positionsInsideGhostHouse[permitPos].col] = 6; // setting permit for ghosts
+                clockForPermit.restart();
+                permitElapsedTime = 0;
             }
             sem_post(&producerConsumerForKeyPermit);
 
