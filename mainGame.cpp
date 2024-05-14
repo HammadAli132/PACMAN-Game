@@ -41,6 +41,7 @@ Sprite boost;
 Sprite power;
 Sprite pointer;
 Sprite lives[3];
+Sprite key;
 vector<Sprite> heartChain = {};
 // these are open mouth textures
 Texture playerTexLeft;
@@ -56,10 +57,11 @@ Texture blueGhostTex;
 // this is our circular food
 CircleShape Food(5.0f); 
 RectangleShape intelligentGhostTarget(Vector2f(50.0f, 50.0f));
-pthread_mutex_t mutex1;
-pthread_mutex_t mutex2;
+pthread_mutex_t inputHandler;
+pthread_mutex_t collisionDetector;
 sem_t producerConsumerForPacman;
 sem_t producerConsumerForGhost;
+sem_t producerConsumerForKeyPermit;
 int PlayerX = 1;
 int PlayerY = 15;
 int totalThreads = 1;
@@ -67,19 +69,23 @@ int exitedThread = 0;
 int currentGhostToLeave = 0;
 int powerPelletsCount = 0;
 int speedBoostersCount = 0;
+int keyCount = 0;
+int permitCount = 0;
 int totalLives = 3;
 #define SPEEDBOOST 0.2f
 bool ghostAtePacman = false;
 bool playerGotPowerUp = false;
 bool menuIsBeingDisplayed = true;
 bool isMenu = true, isGamePlay = false, isGameOver = false;
-Clock clockForPP, clockForSB;
-float elapsedTimeForSB = 0,  elapsedTimeForPP = 0, displayPPAndSBInterval = 5000;
+Clock clockForPP, clockForSB, clockForKeyPermit;
+float elapsedTimeForSB = 0,  elapsedTimeForPP = 0, displayPPAndSBInterval = 5000, keyPermitElapsedTime = 0;
 bool moveCursorUp = false, moveCursorDown = false, keyPressed = false, pressedEnter = false;
 
 struct Point {
     int row, col;
 };
+
+vector<Point> positionsInsideGhostHouse = {{8, 9}, {8, 10}, {8, 11}, {9, 9}, {9, 10}, {9, 11}};
 
 class GHOST {
 private:
@@ -100,6 +106,8 @@ public:
     bool ghostHasSpeedBoost = false;
     Clock ghostClock;
     float ghostElapsedTime = 0;
+    bool keyPicked = false;
+    bool permitPicked = false;
 
     GHOST(Texture &text, int t, int m = 0, float sp = 0) { // Constructor
         this->sprite.setTexture(text);
@@ -257,6 +265,7 @@ void *PLAYERTHREAD(void *arg){
                     isGamePlay = true;
                     clockForPP.restart();
                     clockForSB.restart();
+                    clockForKeyPermit.restart();
                 }
                 if (pointer.getPosition().y == 450) {
                     isMenu = false;
@@ -268,7 +277,7 @@ void *PLAYERTHREAD(void *arg){
             }
         }
         else if (isGamePlay) {
-            pthread_mutex_lock(&mutex2);
+            pthread_mutex_lock(&collisionDetector);
             if (ghostAtePacman && !playerGotPowerUp) {
                 playerArgs->player->getSprite().setPosition(PLAYERPOSX * CELLSIZE + 100, PLAYERPOSY * CELLSIZE + 100);
                 ghostAtePacman = false;
@@ -278,7 +287,7 @@ void *PLAYERTHREAD(void *arg){
                     isGameOver = true;
                 }
             }
-            pthread_mutex_unlock(&mutex2);
+            pthread_mutex_unlock(&collisionDetector);
             if (playerArgs->player->getSprite().getPosition().x == -50) // if player moves out from left portal
                 playerArgs->player->getSprite().setPosition(GRIDWIDTH + 200, 500);
             else if (playerArgs->player->getSprite().getPosition().x == GRIDWIDTH + 200) // if player moves out from right portal
@@ -304,7 +313,7 @@ void *PLAYERTHREAD(void *arg){
                 for(int j = 0; j < gridCols; j++){
                     if (maze1[i][j] == 1) { // checking if maze can be placed here or not
                         mazeBox.setPosition(j * CELLSIZE + 100, i * CELLSIZE + 100); // placing temporary mazeBox at current location
-                        pthread_mutex_lock(&mutex1);
+                        pthread_mutex_lock(&inputHandler);
                         if (playerArgs->player->currentDir == 'W'){ // if player is moving rightwards and it collides with walls 
                             if (topRect.intersects(mazeBox.getGlobalBounds())) {
                                 playerArgs->player->currentDir = playerArgs->player->prevDir;
@@ -333,7 +342,7 @@ void *PLAYERTHREAD(void *arg){
                                 collisionDetected = true;
                             }   
                         }
-                        pthread_mutex_unlock(&mutex1);
+                        pthread_mutex_unlock(&inputHandler);
                     }
                     //detecting player's collision with food
                     else if(maze1[i][j] == 0){
@@ -523,14 +532,16 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
     if (ghostArgs->ghost->currentTarget == ghostArgs->ghost->ghostPath.size()) {
         ghostArgs->ghost->currentTarget = 0;
         foundPath = false;
-        if (!leftHome) {
-            if (ghostArgs->ghost->getID() >= currentGhostToLeave)
-                currentGhostToLeave++;
-            leftHome = true;
-        }
+        if (ghostArgs->ghost->keyPicked == false) 
+            collisionDetected = false;
+        // if (!leftHome) {
+        //     if (ghostArgs->ghost->getID() >= currentGhostToLeave)
+        //         currentGhostToLeave++;
+        //     leftHome = true;
+        // }
         ghostArgs->ghost->ghostCanMove = false;
     }
-    pthread_mutex_lock(&mutex2);
+    pthread_mutex_lock(&collisionDetector);
     if (!playerGotPowerUp && ghostBounds.intersects(ghostArgs->player->getSprite().getGlobalBounds())) {
         ghostAtePacman = true;
     }
@@ -541,10 +552,10 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
         collisionDetected = false;
         ghostArgs->ghost->getSprite().setPosition(GHOSTHOMEX * CELLSIZE + 100, GHOSTHOMEY * CELLSIZE + 100);
     }
-    pthread_mutex_unlock(&mutex2);
+    pthread_mutex_unlock(&collisionDetector);
     for (int i = 0; i < 2; i++) {
+        sem_wait(&producerConsumerForGhost);
         if (!ghostArgs->ghost->ghostHasSpeedBoost && ghostArgs->SBL[i]->isDisplayed && ghostPosX == ghostArgs->SBL[i]->x && ghostPosY == ghostArgs->SBL[i]->y) {
-            sem_wait(&producerConsumerForGhost);
             if (maze1[ghostPosY][ghostPosX] == 3) {
                 maze1[ghostPosY][ghostPosX] = -99;
                 cout << "Ghost Ate Speed Booster at X: " << ghostPosX << " Y: " << ghostPosY << endl;
@@ -557,8 +568,22 @@ void ILLUMINATETHEPATHTOTARGET (GHOSTARGS *ghostArgs, bool &foundPath, bool &lef
                 elapsedTimeForSB = 0;
                 speedBoostersCount--;
             }
-            sem_post(&producerConsumerForGhost);
         }
+        sem_post(&producerConsumerForGhost);
+    }
+    for (int i = 0; i < 6; i++) {
+        sem_wait(&producerConsumerForKeyPermit);
+        if (!ghostArgs->ghost->keyPicked && ghostPosX == positionsInsideGhostHouse[i].col && ghostPosY == positionsInsideGhostHouse[i].row) {
+            if (maze1[ghostPosY][ghostPosX] == 5) {
+                maze1[ghostPosY][ghostPosX] = -99;
+                cout << "Ghost Ate key at X: " << ghostPosX << " Y: " << ghostPosY << endl;
+                ghostArgs->ghost->keyPicked = true;
+                clockForKeyPermit.restart();
+                keyPermitElapsedTime = 0;
+                keyCount--;
+            }
+        }
+        sem_post(&producerConsumerForKeyPermit);
     }
 }
 
@@ -597,10 +622,11 @@ void *GHOSTTHREAD(void *arg) { // this is the ghost thread
                 if (ghostArgs->ghost->getMode() == 0) { // this is for simple ghost
                     srand(time(0) ^ pthread_self());
                     if (!leftHome) {
-                        if (!collisionDetected) {
+                        if (!ghostArgs->ghost->keyPicked && !collisionDetected) {
+                            int newCorner = rand() % 6;
                             Point ghostPosition, ghostTarget;
                             ghostPosition.row = (ghostArgs->ghost->getSprite().getPosition().y - 100) / CELLSIZE, ghostPosition.col = (ghostArgs->ghost->getSprite().getPosition().x - 100) / CELLSIZE;
-                            ghostTarget.row = 6, ghostTarget.col = 10;
+                            ghostTarget.row = positionsInsideGhostHouse[newCorner].row, ghostTarget.col = positionsInsideGhostHouse[newCorner].col;
                             GETPATHTOTARGET(ghostArgs->ghost, ghostPosition, ghostTarget);
                             collisionDetected = true;
                             ghostArgs->ghost->ghostCanMove = false;
@@ -736,6 +762,10 @@ void DRAWMAZE(RenderWindow &window, CircleShape food, Sprite mazeBox) { // this 
                 power.setPosition((j * CELLSIZE) + 100, (i * CELLSIZE) + 100);
                 window.draw(power);
             }
+            else if (maze1[i][j] == 5) {
+                key.setPosition((j * CELLSIZE) + 100, (i * CELLSIZE) + 100);
+                window.draw(key);
+            }
         }
     }
     // these are for the portals
@@ -774,6 +804,10 @@ void *GAMEINIT(void *arg) { // main game thread
     menuBackground.setTexture(menuBG);
     Sprite mainBackground;
     mainBackground.setTexture(mainBG);
+
+    Texture keyText;
+    keyText.loadFromFile("sprites/key.png");
+    key.setTexture(keyText);
 
     Texture life;
     life.loadFromFile("sprites/lives.png");
@@ -836,13 +870,13 @@ void *GAMEINIT(void *arg) { // main game thread
         playerArgs.PPL.push_back(&ppl[i]);
     playerArgs.menu = &menuObj;
 
-    int initialTotalGhost = 3;
+    int initialTotalGhost = 1;
 
     GHOSTARGS ghostArgs[initialTotalGhost];
     GHOST *ghosts[initialTotalGhost];
 
     for (int i = 0; i < initialTotalGhost; i++) {
-        ghosts[i] = new GHOST(ghostTextures[i], i, i);
+        ghosts[i] = new GHOST(ghostTextures[i], i, 0);
         ghostArgs[i].ghost = ghosts[i];
         ghostArgs[i].SBL.push_back(&sbl[0]);
         ghostArgs[i].SBL.push_back(&sbl[1]);
@@ -899,7 +933,7 @@ void *GAMEINIT(void *arg) { // main game thread
                 gameWindow.close();
         }
         if (isMenu) {
-            pthread_mutex_lock(&mutex1);
+            pthread_mutex_lock(&inputHandler);
             if(Keyboard::isKeyPressed(Keyboard::Up)) {
                 if (!keyPressed) {
                     moveCursorUp = true;
@@ -919,10 +953,10 @@ void *GAMEINIT(void *arg) { // main game thread
             }
             else if (keyPressed)
                 keyPressed = false;
-            pthread_mutex_unlock(&mutex1);
+            pthread_mutex_unlock(&inputHandler);
         }
         else if (isGamePlay) {// taking user input
-            pthread_mutex_lock(&mutex1);
+            pthread_mutex_lock(&inputHandler);
             if(Keyboard::isKeyPressed(Keyboard::W) && playerObj.currentDir != 'W') {
                 playerObj.prevDir = playerObj.currentDir;
                 playerObj.currentDir = 'W';
@@ -939,7 +973,7 @@ void *GAMEINIT(void *arg) { // main game thread
                 playerObj.prevDir = playerObj.currentDir;
                 playerObj.currentDir = 'D';
             }
-            pthread_mutex_unlock(&mutex1);
+            pthread_mutex_unlock(&inputHandler);
 
             sem_wait(&producerConsumerForPacman);
             elapsedTimeForPP += clockForPP.getElapsedTime().asSeconds();
@@ -970,6 +1004,19 @@ void *GAMEINIT(void *arg) { // main game thread
                 elapsedTimeForSB = 0;
             }
             sem_post(&producerConsumerForGhost);
+
+            sem_wait(&producerConsumerForKeyPermit);
+            keyPermitElapsedTime += clockForKeyPermit.getElapsedTime().asSeconds();
+            if (keyCount < 2 && keyPermitElapsedTime >= 3000) {
+                keyCount++;
+                srand(time(0) ^ pthread_self());
+                int keyPos = rand() % 6;
+                maze1[positionsInsideGhostHouse[keyPos].row][positionsInsideGhostHouse[keyPos].col] = 5; // setting key for ghosts
+                clockForKeyPermit.restart();
+                keyPermitElapsedTime = 0;
+            }
+            sem_post(&producerConsumerForKeyPermit);
+
             if(clock.getElapsedTime().asSeconds() >= changeMouthTimer && mouthOpened){
                 if(playerObj.currentDir == 'W'){
                     playerObj.changeTexture(playerTexUpClose);   
@@ -1040,10 +1087,11 @@ void *GAMEINIT(void *arg) { // main game thread
 
 int main()
 {
-    pthread_mutex_init(&mutex1, NULL);
-    pthread_mutex_init(&mutex2, NULL);
+    pthread_mutex_init(&inputHandler, NULL);
+    pthread_mutex_init(&collisionDetector, NULL);
     sem_init(&producerConsumerForPacman, 0, 1);
     sem_init(&producerConsumerForGhost, 0, 1);
+    sem_init(&producerConsumerForKeyPermit, 0, 1);
     pthread_t startGame;
     pthread_attr_t detachProp; // setting detachable property
     pthread_attr_init(&detachProp); // initializing that property
@@ -1054,9 +1102,10 @@ int main()
         if (threadExit && exitedThread == totalThreads)
             break;
     }
-    pthread_mutex_destroy(&mutex1);
-    pthread_mutex_destroy(&mutex2);
+    pthread_mutex_destroy(&inputHandler);
+    pthread_mutex_destroy(&collisionDetector);
     sem_destroy(&producerConsumerForPacman);
     sem_destroy(&producerConsumerForGhost);
+    sem_destroy(&producerConsumerForKeyPermit);
     return 0;
 }
